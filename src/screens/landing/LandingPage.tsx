@@ -358,35 +358,34 @@ export const LandingPage: React.FC = () => {
         
         nav.pn {
           position: sticky;
-          top: 12px;
+          top: 14px;
           width: calc(100% - 32px);
           max-width: 1120px;
-          margin: 12px auto 0;
-          height: 64px;
+          margin: 14px auto 0;
+          height: 60px;
           border-radius: 99px;
-          padding: 0 10px 0 16px;
+          padding: 0 12px 0 18px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: #FFFDF9;
-          background: rgba(255, 253, 249, 0.96);
-          border: 1.5px solid rgba(255, 90, 0, 0.22);
-          backdrop-filter: blur(24px) saturate(1.8);
-          -webkit-backdrop-filter: blur(24px) saturate(1.8);
-          box-shadow: 0 14px 36px -12px rgba(255, 90, 0, 0.24), 0 4px 18px rgba(0, 0, 0, 0.04);
+          background: rgba(251, 246, 238, 0.92);
+          border: 1px solid rgba(27, 18, 11, 0.09);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          box-shadow: 0 2px 12px rgba(27, 18, 11, 0.04);
           color: var(--ink);
           z-index: 1000;
         }
         nav.pn .logo {
           display: flex;
           align-items: center;
-          height: 46px;
+          height: 44px;
           padding: 0 8px 0 0;
           flex-shrink: 0;
         }
         nav.pn .logo img {
-          height: 32px;
-          max-height: 34px;
+          height: 30px;
+          max-height: 32px;
           width: auto;
           object-fit: contain;
           display: block;
@@ -396,22 +395,21 @@ export const LandingPage: React.FC = () => {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 10px 22px;
+          padding: 10px 20px;
           border-radius: 99px;
-          font: 700 .92rem "DM Sans", sans-serif;
-          border: 1px solid transparent;
+          font: 600 .9rem "DM Sans", sans-serif;
+          border: none;
           cursor: pointer;
           color: #fff;
-          background: linear-gradient(120deg, #FF5A00, #FF9A4D, #FF5A00);
-          background-size: 200% 100%;
-          box-shadow: 0 10px 26px -8px var(--o);
-          animation: sh2 3s linear infinite;
+          background: #FF5A00;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
           white-space: nowrap;
-          transition: transform .2s ease, box-shadow .2s ease;
+          transition: transform .15s ease, background-color .15s ease, box-shadow .15s ease;
         }
         nav.pn .btn:hover {
           transform: translateY(-1px);
-          box-shadow: 0 14px 30px -6px var(--o);
+          background: #e65100;
+          box-shadow: 0 4px 12px rgba(255, 90, 0, 0.25);
         }
 
         .nav-actions {
@@ -733,7 +731,7 @@ export const LandingPage: React.FC = () => {
         .trust { display: flex; gap: 20px; flex-wrap: wrap; color: var(--mute); font-size: .88rem; }
         .trust span::before { content: "✓ "; color: var(--o); font-weight: 700; }
 
-        .demo { position: relative; background: var(--esp); color: #FFF3E6; border-radius: 30px; padding: 20px; box-shadow: 0 40px 80px -30px rgba(255,90,0,.45); border: 1px solid rgba(255,154,77,.25); max-width: 470px; margin: auto; width: 100%; }
+        .demo { position: relative; background: var(--esp); color: #FFF3E6; border-radius: 24px; padding: 22px; box-shadow: 0 24px 50px -15px rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.1); max-width: 470px; margin: auto; width: 100%; }
         .spin { position: absolute; right: -8px; top: -34px; width: 98px; height: 98px; z-index: 3; background: var(--bg); border-radius: 50%; box-shadow: 0 10px 30px -10px var(--o); }
         .spin svg { position: absolute; inset: 0; animation: rot 14s linear infinite; }
         .spin text { font: 700 10.5px "DM Sans", sans-serif; fill: var(--o); }
@@ -850,9 +848,9 @@ export const LandingPage: React.FC = () => {
         .cmp .new li::before { content: "✓"; color: var(--o2); }
 
         .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-top: 40px; }
-        .bc { grid-column: span 2; background: var(--card); border: 1px solid var(--line); border-radius: 26px; padding: 26px; position: relative; overflow: hidden; transition: transform .3s, box-shadow .3s; }
+        .bc { grid-column: span 2; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; position: relative; overflow: hidden; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
         .bc.w { grid-column: span 3; }
-        .bc:hover { transform: translateY(-5px); box-shadow: 0 24px 50px -18px var(--glow); }
+        .bc:hover { transform: translateY(-3px); border-color: rgba(255, 90, 0, 0.3); box-shadow: 0 12px 28px -12px rgba(27, 18, 11, 0.08); }
         .bc h3 { font-size: 1.2rem; margin-bottom: 4px; }
         .bc p { color: var(--mute); font-size: .92rem; margin-bottom: 16px; }
 
@@ -903,11 +901,11 @@ export const LandingPage: React.FC = () => {
         .paper .t { display: flex; justify-content: space-between; font: 800 1.6rem "Bricolage Grotesque", sans-serif; margin-top: 14px; }
 
         /* Pricing Grid & Cards */
-        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 36px; align-items: stretch; }
-        .p-card { background: var(--card); border: 1px solid var(--line); border-radius: 28px; padding: 36px 28px 28px; display: flex; flex-direction: column; position: relative; transition: transform .2s, box-shadow .2s, border-color .2s; }
-        .p-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -15px rgba(28,25,23,.08); border-color: #ffd8c2; }
-        .p-card.featured { border: 2px solid var(--o); box-shadow: 0 20px 45px -12px rgba(255,95,0,.18); background: linear-gradient(180deg, #fffaf6 0%, #ffffff 45%); }
-        .p-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--o); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 14px; border-radius: 99px; box-shadow: 0 4px 12px rgba(255,95,0,.35); white-space: nowrap; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 36px; align-items: stretch; }
+        .p-card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 32px 24px 24px; display: flex; flex-direction: column; position: relative; transition: transform .2s, box-shadow .2s, border-color .2s; }
+        .p-card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px -12px rgba(28,25,23,.08); border-color: #ffd8c2; }
+        .p-card.featured { border: 2px solid var(--o); box-shadow: 0 16px 36px -10px rgba(255,95,0,.15); background: linear-gradient(180deg, #fffaf6 0%, #ffffff 45%); }
+        .p-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--o); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 3px 12px; border-radius: 99px; box-shadow: 0 2px 8px rgba(255,95,0,.25); white-space: nowrap; }
         .p-dur { font: 700 24px var(--font-head); color: var(--ink); margin-bottom: 4px; letter-spacing: -.02em; }
         .p-sub { color: var(--mute); font-size: 13px; margin-bottom: 22px; }
         .p-price-wrap { margin-bottom: 24px; padding-bottom: 22px; border-bottom: 1px dashed var(--line); }

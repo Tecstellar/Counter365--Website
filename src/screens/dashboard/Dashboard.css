@@ -167,17 +167,18 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 99px;
-  padding: 12px 22px;
-  font-weight: 500;
+  border-radius: 9px;
+  padding: 10px 18px;
+  font-weight: 600;
   background: var(--brand);
   color: #fff;
-  transition: transform 0.15s, box-shadow 0.2s;
-  box-shadow: 0 10px 20px -10px rgba(255, 95, 0, 0.7);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .c365-dashboard .btn:hover {
   transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 
 .c365-dashboard .btn:active {
@@ -185,23 +186,27 @@
 }
 
 .c365-dashboard .btn.g {
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--card);
+  border: 1px solid var(--ln);
   color: var(--ink);
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .c365-dashboard .btn.g:hover {
-  background: #fff;
+  background: rgba(0, 0, 0, 0.02);
+  border-color: #d1d5db;
 }
 
 .c365-dashboard .btn.k {
   background: var(--ink);
-  box-shadow: none;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .c365-dashboard .btn.sm {
-  padding: 9px 16px;
-  font-size: 13px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  border-radius: 8px;
 }
 
 .c365-dashboard .btn[disabled] {
@@ -213,29 +218,39 @@
   background: var(--okbg);
   color: var(--ok);
   font-size: 12px;
-  font-weight: 500;
-  padding: 6px 12px;
+  font-weight: 600;
+  padding: 4px 10px;
   border-radius: 99px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .c365-dashboard .card {
-  background: #fff;
-  border-radius: 14px 14px 0 0;
-  padding: 26px 26px 28px;
+  background: var(--card);
+  border: 1px solid var(--ln);
+  border-radius: 12px;
+  padding: 24px;
   position: relative;
-  margin-bottom: 14px;
-  filter: drop-shadow(0 10px 14px rgba(20, 21, 26, 0.07));
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.c365-dashboard .card::after {
+.c365-dashboard .card.receipt-slip {
+  border-radius: 12px 12px 0 0;
+  border-bottom: 0;
+}
+
+.c365-dashboard .card.receipt-slip::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -12px;
-  height: 12px;
-  background: linear-gradient(135deg, #fff 25%, transparent 25%) -8px 0, linear-gradient(225deg, #fff 25%, transparent 25%) -8px 0;
-  background-size: 16px 16px;
+  bottom: -10px;
+  height: 10px;
+  background: linear-gradient(135deg, var(--card) 25%, transparent 25%) -6px 0, linear-gradient(225deg, var(--card) 25%, transparent 25%) -6px 0;
+  background-size: 12px 12px;
 }
 
 .c365-dashboard .h3 {
@@ -504,25 +519,19 @@
 /* Rail */
 .c365-dashboard .rail {
   position: relative;
-  background: #fff;
+  background: var(--card);
+  border-right: 1px solid var(--ln);
   display: flex;
   flex-direction: column;
-  padding: 26px 16px 18px;
+  padding: 24px 16px 18px;
   min-height: 0;
-  margin-right: 12px;
-  filter: drop-shadow(6px 0 12px rgba(20, 21, 26, 0.07));
+  margin-right: 0;
+  filter: none;
   z-index: 10;
 }
 
 .c365-dashboard .rail::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: -12px;
-  width: 12px;
-  background: linear-gradient(135deg, #fff 25%, transparent 25%) 0 -8px, linear-gradient(45deg, #fff 25%, transparent 25%) 0 -8px;
-  background-size: 16px 16px;
+  display: none;
 }
 
 .c365-dashboard .brand-logo-container {
@@ -596,48 +605,54 @@
 .c365-dashboard .keys button {
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 7px 12px 7px 8px;
-  border-radius: 15px;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
   color: var(--ink2);
-  font-size: 14.5px;
+  font-size: 14px;
   text-align: left;
   position: relative;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.15s ease;
   width: 100%;
 }
 
 .c365-dashboard .keys .ch {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: var(--bg);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
   display: grid;
   place-items: center;
-  transition: 0.2s;
+  transition: all 0.15s ease;
   flex: none;
+  color: var(--mu);
 }
 
 .c365-dashboard .keys button:hover {
-  background: #f6f7fa;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+}
+
+.c365-dashboard .keys button:hover .ch {
   color: var(--ink);
 }
 
 .c365-dashboard .keys button.on {
-  color: var(--ink);
+  background: var(--bsoft);
+  color: var(--brand);
   font-weight: 600;
 }
 
 .c365-dashboard .keys button.on .ch {
   background: var(--brand);
   color: #fff;
-  box-shadow: 0 8px 14px -8px rgba(255, 95, 0, 0.85);
+  box-shadow: none;
 }
 
 .c365-dashboard .keys button.on::after {
   content: "";
   position: absolute;
-  right: 16px;
+  right: 14px;
   top: 50%;
   width: 6px;
   height: 6px;
@@ -2246,14 +2261,13 @@
 
 /* Base Rails & Bar */
 .c365-dashboard.theme-dark .rail {
-  background: #161922;
-  filter: drop-shadow(6px 0 16px rgba(0, 0, 0, 0.45));
+  background: #12141c;
+  border-right: 1px solid #202433;
+  filter: none;
 }
 
 .c365-dashboard.theme-dark .rail::after {
-  background: linear-gradient(135deg, #161922 25%, transparent 25%) 0 -8px,
-              linear-gradient(45deg, #161922 25%, transparent 25%) 0 -8px;
-  background-size: 16px 16px;
+  display: none;
 }
 
 .c365-dashboard.theme-dark .bar {
@@ -2274,16 +2288,17 @@
 }
 
 .c365-dashboard.theme-dark .keys button:hover {
-  background: #1f2433;
+  background: rgba(255, 255, 255, 0.05);
   color: #f8fafc;
 }
 
 .c365-dashboard.theme-dark .keys button.on {
-  background: #ff5f00;
-  color: #ffffff;
+  background: rgba(255, 95, 0, 0.15);
+  color: #ff5f00;
 }
 
 .c365-dashboard.theme-dark .keys button.on .ch {
+  background: #ff5f00;
   color: #ffffff;
 }
 
@@ -2306,17 +2321,19 @@
   color: #f8fafc;
 }
 
-/* Card & Jagged Sawtooth Edge */
+/* Card & Quiet Surfaces */
 .c365-dashboard.theme-dark .card {
   background: #161922;
+  border: 1px solid #242938;
   color: #f8fafc;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.4));
+  filter: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
-.c365-dashboard.theme-dark .card::after {
-  background: linear-gradient(135deg, #161922 25%, transparent 25%) -8px 0,
-              linear-gradient(225deg, #161922 25%, transparent 25%) -8px 0;
-  background-size: 16px 16px;
+.c365-dashboard.theme-dark .card.receipt-slip::after {
+  background: linear-gradient(135deg, #161922 25%, transparent 25%) -6px 0,
+              linear-gradient(225deg, #161922 25%, transparent 25%) -6px 0;
+  background-size: 12px 12px;
 }
 
 .c365-dashboard.theme-dark .num,
