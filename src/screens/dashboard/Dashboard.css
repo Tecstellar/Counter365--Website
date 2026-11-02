@@ -3160,6 +3160,46 @@
   font-weight: 700 !important;
 }
 
+/* ==========================================================================
+   PENDING DUES COMPACT SQUARE GRID
+   ========================================================================== */
+.c365-dashboard .due-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.c365-dashboard .due-square-card {
+  background: var(--card);
+  border: 1.5px solid var(--ln);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 220px;
+}
+
+.c365-dashboard .due-square-card:hover {
+  border-color: rgba(255, 95, 0, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.07);
+}
+
+.c365-dashboard.theme-dark .due-square-card {
+  background: #161922;
+  border-color: #242938;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.c365-dashboard.theme-dark .due-square-card:hover {
+  border-color: rgba(255, 95, 0, 0.55);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
 
 
 

@@ -7,8 +7,46 @@ import { menuService } from '../../services/menuService';
 import { expenseService } from '../../services/expenseService';
 import { contactService } from '../../services/contactService';
 import { shopService, DEFAULT_ROLE_PERMS, MODULE_PERMISSIONS } from '../../services/shopService';
-import { Bill, MenuItem, MenuCategory, ExpenseRecord, CustomerRecord, VendorRecord, PaymentMethod, ShopMember, UserRole, PermissionKey } from '../../types/models';
+import { Bill, MenuItem, MenuCategory, ExpenseRecord, CustomerRecord, VendorRecord, PaymentMethod, ShopMember, UserRole, PermissionKey, SubscriptionPlanId } from '../../types/models';
+import { subscriptionService, PRO_PLANS } from '../../services/subscriptionService';
 import { generateUUID } from '../../lib/uuid';
+import {
+  Store,
+  Users,
+  Printer,
+  Sparkles,
+  Camera,
+  Crown,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  CalendarDays,
+  Star,
+  Banknote,
+  Smartphone,
+  Clock,
+  FileText,
+  FileSpreadsheet,
+  Download,
+  Eye,
+  Share2,
+  Truck,
+  Phone,
+  MessageCircle,
+  Plus,
+  Search,
+  Wallet,
+  Coffee,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  X,
+  CreditCard,
+  Shield,
+  Layers,
+  ArrowRight,
+  RefreshCw,
+} from 'lucide-react';
 import './Dashboard.css';
 
 type DashboardTab = 'home' | 'pos' | 'bills' | 'khata' | 'menu' | 'exp' | 'cust' | 'rep' | 'set';
@@ -175,6 +213,45 @@ export const DashboardApp: React.FC = () => {
 
   // Hourly Clock Hover State
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
+
+  // Pro Upgrade Modal State
+  const [showUpgradeProModal, setShowUpgradeProModal] = useState<boolean>(false);
+
+  // Partial Due Collection & Customer Dues State
+  const [collectingCustomerDue, setCollectingCustomerDue] = useState<{
+    customerName: string;
+    customerPhone?: string;
+    totalDue: number;
+    bills: Bill[];
+    targetBill?: Bill;
+  } | null>(null);
+  const [collectPayingNow, setCollectPayingNow] = useState<string>('');
+  const [collectPayMethod, setCollectPayMethod] = useState<PaymentMethod>('Cash');
+  const [isCollectingDue, setIsCollectingDue] = useState<boolean>(false);
+  const [expandedCustomerKey, setExpandedCustomerKey] = useState<string | null>(null);
+
+  // Tea Shop / Café Standard Expense Presets
+  const TEA_SHOP_EXPENSE_PRESETS = [
+    { desc: 'Milk Packets / Dairy', cat: 'Ingredients' },
+    { desc: 'Tea Powder / Dust', cat: 'Ingredients' },
+    { desc: 'Coffee Powder / Beans', cat: 'Ingredients' },
+    { desc: 'Sugar / Jaggery', cat: 'Ingredients' },
+    { desc: 'Gas Cylinder (LPG Refill)', cat: 'Utilities' },
+    { desc: 'Paper Cups (Tea / Coffee)', cat: 'Supplies' },
+    { desc: 'Parcel Glass, Lids & Straws', cat: 'Supplies' },
+    { desc: 'Snacks / Biscuits / Bun Wholesale', cat: 'Ingredients' },
+    { desc: 'Cardamom (Elaichi) & Tea Spices', cat: 'Ingredients' },
+    { desc: 'Lemons & Fruits for Juices', cat: 'Ingredients' },
+    { desc: 'Staff Daily Wages / Bata', cat: 'Salary' },
+    { desc: 'Cleaning Supplies & Detergents', cat: 'Maintenance' },
+    { desc: 'Ice Blocks & Mineral Water Cans', cat: 'Utilities' },
+    { desc: 'Electricity / Shop Utilities', cat: 'Utilities' },
+    { desc: 'Machine / Stove / Equipment Repair', cat: 'Maintenance' },
+    { desc: 'Custom Reason', cat: 'Other' },
+  ];
+  const [selectedExpensePreset, setSelectedExpensePreset] = useState<string>('Milk Packets / Dairy');
+  const [isCustomExpenseReason, setIsCustomExpenseReason] = useState<boolean>(false);
+  const [customExpenseReason, setCustomExpenseReason] = useState<string>('');
 
   // Show Toast
   const showToast = (msg: string) => {
@@ -734,20 +811,120 @@ Generated via Counter365 Cloud POS`;
     await executeBillSave({ shareViaWhatsApp: false, customerName: name, customerPhone: phone });
   };
 
-  // Collect Pending Khata Due
-  const handleCollectDue = async (bill: Bill) => {
+  // Collect Pending Dues (Supports Partial Collections & Customer Allocations)
+  const handleOpenCollectDueModal = (customerName: string, customerPhone?: string, totalDue?: number, bills?: Bill[], targetBill?: Bill) => {
+    const dueAmt = totalDue ?? (targetBill ? (targetBill.pendingAmount || targetBill.totalAmount) : 0);
+    setCollectingCustomerDue({
+      customerName,
+      customerPhone,
+      totalDue: dueAmt,
+      bills: bills || (targetBill ? [targetBill] : []),
+      targetBill,
+    });
+    setCollectPayingNow(String(dueAmt));
+    setCollectPayMethod('Cash');
+  };
+
+  const handleConfirmCollectDue = async () => {
+    if (!collectingCustomerDue) return;
+    const payingAmt = parseFloat(collectPayingNow);
+    if (isNaN(payingAmt) || payingAmt <= 0) {
+      showToast('Please enter a valid amount greater than ₹0.');
+      return;
+    }
+
+    if (payingAmt > collectingCustomerDue.totalDue) {
+      showToast(`Cannot collect more than the total due (${fm(collectingCustomerDue.totalDue)}).`);
+      return;
+    }
+
+    setIsCollectingDue(true);
     try {
-      await billingService.collectPendingDue(bill.id, shop.id, bill.pendingAmount, 'Cash', {
-        name: profile.fullName || 'Owner',
-        role: currentRole,
-      });
+      let remainingToApply = payingAmt;
+      const targetBills = collectingCustomerDue.targetBill 
+        ? [collectingCustomerDue.targetBill] 
+        : collectingCustomerDue.bills;
+
+      const updatedBillEntries: { id: string; paidDelta: number; newPending: number; newPaid: number; isSettled: boolean }[] = [];
+
+      for (const b of targetBills) {
+        if (remainingToApply <= 0) break;
+        const curPending = Number(b.pendingAmount || b.totalAmount) || 0;
+        const applyToThisBill = Math.min(remainingToApply, curPending);
+
+        await billingService.collectPendingDue(b.id, shop.id, applyToThisBill, collectPayMethod, {
+          name: profile.fullName || 'Owner',
+          role: currentRole,
+        });
+
+        const newPaid = (b.paidAmount || 0) + applyToThisBill;
+        const newPending = Math.max(0, b.totalAmount - newPaid);
+
+        updatedBillEntries.push({
+          id: b.id,
+          paidDelta: applyToThisBill,
+          newPending,
+          newPaid,
+          isSettled: newPending === 0,
+        });
+
+        remainingToApply -= applyToThisBill;
+      }
 
       setBills((prev) =>
-        prev.map((b) => (b.id === bill.id ? { ...b, pendingAmount: 0, paidAmount: b.totalAmount, paymentMode: 'Cash' } : b))
+        prev.map((b) => {
+          const match = updatedBillEntries.find((u) => u.id === b.id);
+          if (!match) return b;
+          return {
+            ...b,
+            paidAmount: match.newPaid,
+            pendingAmount: match.newPending,
+            paymentMode: match.isSettled ? collectPayMethod : 'Partial Pay',
+            settledAt: match.isSettled ? new Date().toISOString() : b.settledAt,
+          };
+        })
       );
-      showToast(`Collected ${fm(bill.pendingAmount)} from ${bill.customerName || 'Customer'}.`);
-    } catch (err: any) {
-      showToast('Error collecting due.');
+
+      const remainingCustomerDue = Math.max(0, collectingCustomerDue.totalDue - payingAmt);
+      if (collectingCustomerDue.customerPhone) {
+        const custMatch = customers.find(c => c.phone === collectingCustomerDue.customerPhone);
+        if (custMatch) {
+          await contactService.saveCustomer({
+            ...custMatch,
+            pendingBalance: remainingCustomerDue,
+            statusTag: remainingCustomerDue > 0 ? 'Pending' : 'Regular',
+          });
+          setCustomers(prev => prev.map(c => c.id === custMatch.id ? { ...c, pendingBalance: remainingCustomerDue } : c));
+        }
+      }
+
+      showToast(`Collected ${fm(payingAmt)} from ${collectingCustomerDue.customerName}. Remaining due: ${fm(remainingCustomerDue)}.`);
+      setCollectingCustomerDue(null);
+      setCollectPayingNow('');
+    } catch (err) {
+      console.error(err);
+      showToast('Error recording due payment.');
+    } finally {
+      setIsCollectingDue(false);
+    }
+  };
+
+  const handleActivateProPlan = (planId: SubscriptionPlanId) => {
+    if (!shop?.id) return;
+    const url = subscriptionService.getPaymentCheckoutUrl(shop.id, planId, shop.phone);
+    window.open(url, '_blank');
+  };
+
+  const handleSelectExpensePreset = (presetDesc: string) => {
+    setSelectedExpensePreset(presetDesc);
+    if (presetDesc === 'Custom Reason') {
+      setIsCustomExpenseReason(true);
+    } else {
+      setIsCustomExpenseReason(false);
+      const match = TEA_SHOP_EXPENSE_PRESETS.find(p => p.desc === presetDesc);
+      if (match) {
+        setNewExpCat(match.cat);
+      }
     }
   };
 
@@ -891,10 +1068,12 @@ Generated via Counter365 Cloud POS`;
 
   // Add Expense
   const handleAddExpense = async () => {
-    const desc = newExpDesc.trim();
+    const desc = (isCustomExpenseReason || selectedExpensePreset === 'Custom Reason')
+      ? customExpenseReason.trim()
+      : selectedExpensePreset.trim();
     const amt = parseFloat(newExpAmount);
     if (!desc || isNaN(amt) || amt <= 0) {
-      showToast('Enter what it was for and the amount.');
+      showToast('Enter valid expense details and the amount.');
       return;
     }
 
@@ -911,9 +1090,9 @@ Generated via Counter365 Cloud POS`;
       });
 
       setExpenses((prev) => [record, ...prev]);
-      setNewExpDesc('');
+      setCustomExpenseReason('');
       setNewExpAmount('');
-      showToast('Expense saved.');
+      showToast('Expense recorded successfully.');
     } catch (err) {
       showToast('Failed to save expense.');
     }
@@ -1114,7 +1293,7 @@ Generated via Counter365 Cloud POS`;
     { id: 'home', icon: 'dash', en: 'Dashboard', ta: 'டாஷ்போர்டு' },
     { id: 'pos', icon: 'pos', en: 'POS billing', ta: 'பில்லிங்' },
     { id: 'bills', icon: 'bill', en: 'Bills', ta: 'பில்கள்' },
-    { id: 'khata', icon: 'clock', en: 'Khata due', ta: 'கடன் நிலுவை' },
+    { id: 'khata', icon: 'clock', en: 'Pending dues', ta: 'நிலுவை கடன்' },
     { id: 'menu', icon: 'cup', en: 'Menu items', ta: 'மெனு' },
     { id: 'exp', icon: 'wallet', en: 'Expenses', ta: 'செலவுகள்' },
     { id: 'cust', icon: 'users', en: 'Customers', ta: 'வாடிக்கையாளர்கள்' },
@@ -1146,8 +1325,8 @@ Generated via Counter365 Cloud POS`;
         };
       case 'khata':
         return {
-          title: isTamil ? 'கடன் நிலுவை' : 'Khata due',
-          sub: isTamil ? 'நிலுவை தொகை உள்ள வாடிக்கையாளர்கள்' : 'Customers with unpaid or partly paid bills',
+          title: isTamil ? 'நிலுவை கடன்' : 'Pending dues',
+          sub: isTamil ? 'நிலுவை தொகை உள்ள வாடிக்கையாளர்கள்' : 'Customers with unpaid or partly paid balances',
         };
       case 'menu':
         return {
@@ -1221,6 +1400,42 @@ Generated via Counter365 Cloud POS`;
   const dueBills = useMemo(() => {
     return bills.filter((b) => b.status !== 'deleted' && (b.paymentMode === 'Pending' || (b.pendingAmount || 0) > 0));
   }, [bills]);
+
+  // Group pending dues by customer (aggregation & multi-bill dropdown)
+  const customerDueGroups = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      customerId?: string;
+      customerName: string;
+      customerPhone: string;
+      totalDue: number;
+      bills: Bill[];
+    }>();
+
+    dueBills.forEach((b) => {
+      const name = (b.customerName || 'Walk-in Customer').trim();
+      const phone = (b.customerPhone || '').trim();
+      const groupKey = phone ? `phone:${phone}` : `name:${name.toLowerCase()}`;
+      const pendingAmt = Number(b.pendingAmount || b.totalAmount) || 0;
+
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          key: groupKey,
+          customerId: b.customerId || undefined,
+          customerName: name,
+          customerPhone: phone,
+          totalDue: 0,
+          bills: [],
+        });
+      }
+
+      const grp = map.get(groupKey)!;
+      grp.totalDue += pendingAmt;
+      grp.bills.push(b);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
+  }, [dueBills]);
   const paidBills = useMemo(() => {
     return bills.filter((b) => b.status !== 'deleted' && b.paymentMode !== 'Pending' && (b.pendingAmount || 0) <= 0);
   }, [bills]);
@@ -2720,63 +2935,188 @@ Generated via Counter365 POS Cloud`;
               </div>
             )}
 
-            {/* TAB 4: KHATA DUE */}
+            {/* TAB 4: PENDING DUES (CUSTOMER GROUPED SQUARE CARDS) */}
             {tab === 'khata' && (
               <div>
-                <section className="card" style={{ marginBottom: '18px' }}>
-                  <span className="lbl">Total outstanding</span>
-                  <div className="num">{fm(totals.due)}</div>
-                  <span className="cap">
-                    Across {dueBills.length} customers with unpaid bills
-                  </span>
-                </section>
+                {/* Header Metrics */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '18px' }}>
+                  <section className="card" style={{ padding: '16px 20px' }}>
+                    <span className="lbl">Total Outstanding Balance</span>
+                    <div className="num" style={{ color: '#dc2626' }}>{fm(totals.due)}</div>
+                    <span className="cap">
+                      Across {customerDueGroups.length} customers ({dueBills.length} pending bills)
+                    </span>
+                  </section>
+                  <section className="card" style={{ padding: '16px 20px' }}>
+                    <span className="lbl">Customers with Dues</span>
+                    <div className="num" style={{ color: 'var(--ink)' }}>{customerDueGroups.length}</div>
+                    <span className="cap">Grouped by customer account</span>
+                  </section>
+                </div>
 
-                <section className="card">
-                  <div className="scroll">
-                    <div className="tb">
-                      <div
-                        className="tr th"
-                        style={{ gridTemplateColumns: '1.6fr 80px 110px 120px' } as any}
-                      >
-                        <span>Customer</span>
-                        <span>Bill</span>
-                        <span>Balance</span>
-                        <span></span>
-                      </div>
+                {/* Customer Due Square Grid */}
+                <div className="due-grid">
+                  {customerDueGroups.map((grp) => {
+                    const isExpanded = expandedCustomerKey === grp.key;
+                    return (
+                      <div key={grp.key} className="due-square-card">
+                        <div>
+                          {/* Top: Customer Header */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div
+                                style={{
+                                  width: '38px',
+                                  height: '38px',
+                                  borderRadius: '10px',
+                                  background: 'var(--bsoft)',
+                                  color: 'var(--brand)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 700,
+                                  fontSize: '15px',
+                                  flexShrink: 0,
+                                  border: '1px solid var(--ln)',
+                                }}
+                              >
+                                {(grp.customerName || 'C')[0].toUpperCase()}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <b style={{ fontSize: '15px', color: 'var(--ink)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {grp.customerName}
+                                </b>
+                                <small style={{ color: 'var(--mu)', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <Phone className="w-3 h-3 text-[#ff5f00]" />
+                                  <span>{grp.customerPhone ? `+91 ${grp.customerPhone}` : 'No phone'}</span>
+                                </small>
+                              </div>
+                            </div>
 
-                      {dueBills.map((b) => (
-                        <div
-                          key={b.id}
-                          className="tr"
-                          style={{ gridTemplateColumns: '1.6fr 80px 110px 120px' } as any}
-                        >
-                          <span>
-                            {esc(b.customerName || 'Customer')}
-                            {b.customerPhone && (
-                              <>
-                                <br />
-                                <small className="cap">{b.customerPhone}</small>
-                              </>
-                            )}
-                          </span>
-                          <span>{bn(b.billNumber)}</span>
-                          <span>
-                            <b style={{ fontWeight: 500 }}>{fm(b.pendingAmount || b.totalAmount)}</b>
-                          </span>
-                          <span>
-                            <button className="btn sm" onClick={() => handleCollectDue(b)}>
-                              Collect
-                            </button>
-                          </span>
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '99px',
+                                background: 'rgba(217, 45, 32, 0.1)',
+                                color: '#dc2626',
+                                border: '1px solid rgba(217, 45, 32, 0.2)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {grp.bills.length} {grp.bills.length === 1 ? 'bill' : 'bills'}
+                            </span>
+                          </div>
+
+                          {/* Pending Balance Box */}
+                          <div style={{ padding: '10px 12px', background: 'rgba(217, 45, 32, 0.04)', borderRadius: '12px', border: '1px solid rgba(217, 45, 32, 0.12)', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '11px', color: 'var(--mu)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                              Pending Balance
+                            </span>
+                            <div style={{ fontSize: '22px', fontWeight: 800, color: '#dc2626', lineHeight: 1.2, marginTop: '2px' }}>
+                              {fm(grp.totalDue)}
+                            </div>
+                          </div>
                         </div>
-                      ))}
 
-                      {dueBills.length === 0 && (
-                        <div className="empty">All dues are cleared. Nice work!</div>
-                      )}
+                        {/* Dropdown for All Bills & Action */}
+                        <div>
+                          <button
+                            type="button"
+                            className="due-dropdown-toggle"
+                            onClick={() => setExpandedCustomerKey(isExpanded ? null : grp.key)}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '6px 8px',
+                              fontSize: '11.5px',
+                              fontWeight: 600,
+                              color: 'var(--brand)',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              marginBottom: '8px',
+                            }}
+                          >
+                            <span>{isExpanded ? 'Hide bills' : `View all bills (${grp.bills.length})`}</span>
+                            {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                          </button>
+
+                          {isExpanded && (
+                            <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+                              {grp.bills.map((b) => {
+                                const bDue = Number(b.pendingAmount || b.totalAmount) || 0;
+                                return (
+                                  <div
+                                    key={b.id}
+                                    style={{
+                                      background: 'var(--card)',
+                                      border: '1px solid var(--ln)',
+                                      borderRadius: '8px',
+                                      padding: '8px 10px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      fontSize: '12px',
+                                    }}
+                                  >
+                                    <div>
+                                      <b style={{ color: 'var(--ink)' }}>{bn(b.billNumber)}</b>
+                                      <small style={{ display: 'block', color: 'var(--mu)', fontSize: '10.5px' }}>
+                                        Total: {fm(b.totalAmount)} {b.paidAmount > 0 ? `· Paid: ${fm(b.paidAmount)}` : ''}
+                                      </small>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <b style={{ color: '#dc2626' }}>{fm(bDue)}</b>
+                                      <button
+                                        type="button"
+                                        className="btn sm"
+                                        onClick={() => handleOpenCollectDueModal(grp.customerName, grp.customerPhone, bDue, [b], b)}
+                                        style={{ padding: '2px 8px', fontSize: '11px', height: '24px' }}
+                                      >
+                                        Collect
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Primary Collect Due Button */}
+                          <button
+                            type="button"
+                            className="btn p"
+                            onClick={() => handleOpenCollectDueModal(grp.customerName, grp.customerPhone, grp.totalDue, grp.bills)}
+                            style={{
+                              width: '100%',
+                              height: '36px',
+                              fontSize: '12.5px',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              borderRadius: '10px',
+                            }}
+                          >
+                            <span>Collect Due</span>
+                            <span>({fm(grp.totalDue)})</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {customerDueGroups.length === 0 && (
+                    <div className="card empty" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center' }}>
+                      All dues are cleared. Outstanding balance is ₹0!
                     </div>
-                  </div>
-                </section>
+                  )}
+                </div>
               </div>
             )}
 
@@ -3036,19 +3376,50 @@ Generated via Counter365 POS Cloud`;
                     </p>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
                     <div>
-                      <label className="lbl" style={{ display: 'block', marginBottom: '5px' }}>
-                        What was it for? *
-                      </label>
-                      <input
-                        className="search"
-                        style={{ width: '100%', margin: 0 }}
-                        placeholder="e.g. 15L Milk packet, Tea leaf"
-                        value={newExpDesc}
-                        onChange={(e) => setNewExpDesc(e.target.value)}
-                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                        <label className="lbl" style={{ margin: 0 }}>
+                          Expense Item / Reason *
+                        </label>
+                        <button
+                          type="button"
+                          className="btn g sm"
+                          onClick={() => {
+                            setIsCustomExpenseReason((prev) => !prev);
+                            if (!isCustomExpenseReason) setSelectedExpensePreset('Custom Reason');
+                          }}
+                          style={{ fontSize: '11px', padding: '2px 8px', color: 'var(--brand)' }}
+                        >
+                          {isCustomExpenseReason ? 'Pick from list' : '+ Add custom reason'}
+                        </button>
+                      </div>
+
+                      {!isCustomExpenseReason && selectedExpensePreset !== 'Custom Reason' ? (
+                        <select
+                          className="search"
+                          style={{ width: '100%', margin: 0 }}
+                          value={selectedExpensePreset}
+                          onChange={(e) => handleSelectExpensePreset(e.target.value)}
+                        >
+                          {TEA_SHOP_EXPENSE_PRESETS.map((p) => (
+                            <option key={p.desc} value={p.desc}>
+                              {p.desc}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          className="search"
+                          style={{ width: '100%', margin: 0 }}
+                          placeholder="e.g. Counter chair repair, Painting"
+                          value={customExpenseReason}
+                          onChange={(e) => setCustomExpenseReason(e.target.value)}
+                          autoFocus
+                        />
+                      )}
                     </div>
+
                     <div>
                       <label className="lbl" style={{ display: 'block', marginBottom: '5px' }}>
                         Amount (₹) *
@@ -3062,6 +3433,7 @@ Generated via Counter365 POS Cloud`;
                         onChange={(e) => setNewExpAmount(e.target.value)}
                       />
                     </div>
+
                     <div>
                       <label className="lbl" style={{ display: 'block', marginBottom: '5px' }}>
                         Category *
@@ -3072,12 +3444,12 @@ Generated via Counter365 POS Cloud`;
                         value={newExpCat}
                         onChange={(e) => setNewExpCat(e.target.value)}
                       >
-                        <option value="Ingredients">🍃 Ingredients & Milk</option>
-                        <option value="Supplies">📦 Cups & Paper Supplies</option>
-                        <option value="Utilities">⚡ Gas, Power & Water</option>
-                        <option value="Salary">👤 Wages / Daily Salary</option>
-                        <option value="Maintenance">🔧 Repairs & Cleaners</option>
-                        <option value="Other">📝 Other Counter Expense</option>
+                        <option value="Ingredients">Ingredients & Dairy</option>
+                        <option value="Supplies">Cups & Paper Supplies</option>
+                        <option value="Utilities">Gas, Fuel & Utilities</option>
+                        <option value="Salary">Staff Wages & Daily Salary</option>
+                        <option value="Maintenance">Shop Maintenance & Cleaning</option>
+                        <option value="Other">General / Other Counter Expense</option>
                       </select>
                     </div>
                   </div>
@@ -3106,35 +3478,27 @@ Generated via Counter365 POS Cloud`;
                 </div>
 
                 <div className="exp-grid">
-                  {expenses.map((e) => {
-                    const getIcon = (cat: string) => {
-                      if (cat.includes('Ingredient')) return '🍃';
-                      if (cat.includes('Supplies')) return '📦';
-                      if (cat.includes('Utilities')) return '⚡';
-                      if (cat.includes('Salary')) return '👤';
-                      return '📝';
-                    };
-                    return (
-                      <div key={e.id} className="exp-box">
-                        <div className="exp-top">
-                          <span className="exp-cat-badge">
-                            {getIcon(e.category || '')} {e.category || 'Expense'}
-                          </span>
-                          <button
-                            type="button"
-                            className="exp-del-btn"
-                            onClick={() => handleDeleteExpense(e.id)}
-                            title="Delete expense"
-                            aria-label="Remove expense"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        <div className="exp-amt">{fm(e.amount)}</div>
-                        <p className="exp-desc">{esc(e.description || 'General expense')}</p>
+                  {expenses.map((e) => (
+                    <div key={e.id} className="exp-box">
+                      <div className="exp-top">
+                        <span className="exp-cat-badge">
+                          {e.category || 'Expense'}
+                        </span>
+                        <button
+                          type="button"
+                          className="exp-del-btn"
+                          onClick={() => handleDeleteExpense(e.id)}
+                          title="Delete expense"
+                          aria-label="Remove expense"
+                          style={{ display: 'grid', placeItems: 'center' }}
+                        >
+                          <span className="icon-delete" style={{ width: '13px', height: '13px' }} />
+                        </button>
                       </div>
-                    );
-                  })}
+                      <div className="exp-amt">{fm(e.amount)}</div>
+                      <p className="exp-desc">{esc(e.description || 'General expense')}</p>
+                    </div>
+                  ))}
 
                   {expenses.length === 0 && (
                     <div className="card empty" style={{ gridColumn: '1 / -1', padding: '36px', textAlign: 'center' }}>
@@ -3155,15 +3519,19 @@ Generated via Counter365 POS Cloud`;
                       type="button"
                       className={`contact-slider-btn ${contactsSubTab === 'customers' ? 'active' : ''}`}
                       onClick={() => setContactsSubTab('customers')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      👥 Customers ({customers.length})
+                      <Users className="w-4 h-4" />
+                      <span>Customers ({customers.length})</span>
                     </button>
                     <button
                       type="button"
                       className={`contact-slider-btn ${contactsSubTab === 'vendors' ? 'active' : ''}`}
                       onClick={() => setContactsSubTab('vendors')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      🚚 Vendors / Suppliers ({vendors.length})
+                      <Truck className="w-4 h-4" />
+                      <span>Vendors / Suppliers ({vendors.length})</span>
                     </button>
                   </div>
                 </div>
@@ -3186,7 +3554,8 @@ Generated via Counter365 POS Cloud`;
                             onClick={handleImportPhoneContacts}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
-                            📱 Import from Phone
+                            <Smartphone className="w-3.5 h-3.5" />
+                            <span>Import from Phone</span>
                           </button>
                         )}
                       </div>
@@ -3253,8 +3622,9 @@ Generated via Counter365 POS Cloud`;
                               <div>
                                 <b style={{ fontWeight: 600 }}>{c.name}</b>
                                 <br />
-                                <small style={{ color: 'var(--brand)', fontWeight: 500 }}>
-                                  📞 {c.phone || 'No phone'}
+                                <small style={{ color: 'var(--brand)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <Phone className="w-3 h-3 text-[#ff5f00]" />
+                                  <span>{c.phone || 'No phone'}</span>
                                 </small>
                               </div>
                             </div>
@@ -3334,14 +3704,14 @@ Generated via Counter365 POS Cloud`;
                             value={newVendorCategory}
                             onChange={(e) => setNewVendorCategory(e.target.value)}
                           >
-                            <option value="Milk & Dairy">🥛 Milk & Dairy</option>
-                            <option value="Tea Powder & Coffee">☕ Tea Powder & Coffee</option>
-                            <option value="Sugar & Provisions">🌾 Sugar & Provisions</option>
-                            <option value="Cups & Paper Packaging">🥤 Cups & Packaging</option>
-                            <option value="Bakery & Snacks">🥐 Bakery & Snacks</option>
-                            <option value="Gas & Cylinder">🔥 Gas & Fuel</option>
-                            <option value="Ice & Water">🧊 Ice & Mineral Water</option>
-                            <option value="Other Product">📦 Other Product / General</option>
+                            <option value="Milk & Dairy">Milk & Dairy</option>
+                            <option value="Tea Powder & Coffee">Tea Powder & Coffee</option>
+                            <option value="Sugar & Provisions">Sugar & Provisions</option>
+                            <option value="Cups & Paper Packaging">Cups & Packaging</option>
+                            <option value="Bakery & Snacks">Bakery & Snacks</option>
+                            <option value="Gas & Cylinder">Gas & Fuel</option>
+                            <option value="Ice & Water">Ice & Mineral Water</option>
+                            <option value="Other Product">Other Product / General</option>
                           </select>
                         </div>
                         <div>
@@ -3395,12 +3765,15 @@ Generated via Counter365 POS Cloud`;
                             <div>
                               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                  <div className="av vendor-av">🚚</div>
+                                  <div className="av vendor-av" style={{ display: 'grid', placeItems: 'center' }}>
+                                    <Truck className="w-5 h-5 text-[#ff5f00]" />
+                                  </div>
                                   <div>
                                     <b style={{ fontWeight: 600, fontSize: '15px' }}>{v.name}</b>
                                     <br />
-                                    <small style={{ color: 'var(--brand)', fontWeight: 500 }}>
-                                      📞 {v.phone || 'No phone'}
+                                    <small style={{ color: 'var(--brand)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <Phone className="w-3 h-3 text-[#ff5f00]" />
+                                      <span>{v.phone || 'No phone'}</span>
                                     </small>
                                   </div>
                                 </div>
@@ -3425,18 +3798,20 @@ Generated via Counter365 POS Cloud`;
                                   <a
                                     href={`tel:${v.phone}`}
                                     className="btn g sm"
-                                    style={{ flex: 1, textDecoration: 'none', textAlign: 'center', fontSize: '12px' }}
+                                    style={{ flex: 1, textDecoration: 'none', textAlign: 'center', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                   >
-                                    📞 Call
+                                    <Phone className="w-3.5 h-3.5" />
+                                    <span>Call</span>
                                   </a>
                                   <a
                                     href={`https://wa.me/91${v.phone.replace(/\D/g, '').slice(-10)}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="btn g sm"
-                                    style={{ flex: 1, textDecoration: 'none', textAlign: 'center', fontSize: '12px' }}
+                                    style={{ flex: 1, textDecoration: 'none', textAlign: 'center', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                                   >
-                                    💬 WhatsApp
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    <span>WhatsApp</span>
                                   </a>
                                 </>
                               )}
@@ -3465,15 +3840,19 @@ Generated via Counter365 POS Cloud`;
                       type="button"
                       className={`contact-slider-btn ${reportsMainTab === 'monthly' ? 'active' : ''}`}
                       onClick={() => setReportsMainTab('monthly')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      📅 Monthly Reports
+                      <Calendar className="w-4 h-4" />
+                      <span>Monthly Reports</span>
                     </button>
                     <button
                       type="button"
                       className={`contact-slider-btn ${reportsMainTab === 'summary' ? 'active' : ''}`}
                       onClick={() => setReportsMainTab('summary')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                     >
-                      📊 Summary
+                      <BarChart3 className="w-4 h-4" />
+                      <span>Summary</span>
                     </button>
                   </div>
                 </div>
@@ -3543,15 +3922,19 @@ Generated via Counter365 POS Cloud`;
                           type="button"
                           className={`contact-slider-btn ${reportsMonthlySubTab === 'summary' ? 'active' : ''}`}
                           onClick={() => setReportsMonthlySubTab('summary')}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
-                          📈 Executive Summary
+                          <TrendingUp className="w-4 h-4" />
+                          <span>Executive Summary</span>
                         </button>
                         <button
                           type="button"
                           className={`contact-slider-btn ${reportsMonthlySubTab === 'daywise' ? 'active' : ''}`}
                           onClick={() => setReportsMonthlySubTab('daywise')}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                         >
-                          📅 Day-wise Audit ({monthlyStats.days.length} Days)
+                          <CalendarDays className="w-4 h-4" />
+                          <span>Day-wise Audit ({monthlyStats.days.length} Days)</span>
                         </button>
                       </div>
                     </div>
@@ -3585,7 +3968,10 @@ Generated via Counter365 POS Cloud`;
                           </section>
 
                           <section className="card" style={{ padding: '16px' }}>
-                            <span className="lbl">⭐ Best Selling Day</span>
+                            <span className="lbl" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <Star className="w-3.5 h-3.5 text-[#ff5f00]" />
+                              <span>Best Selling Day</span>
+                            </span>
                             <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--brand)', margin: '4px 0' }}>
                               {monthlyStats.bestDay.label}
                             </div>
@@ -3671,7 +4057,10 @@ Generated via Counter365 POS Cloud`;
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                                 <div style={{ background: 'var(--card)', padding: '14px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>💵 Cash in Drawer</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      <Banknote className="w-4 h-4 text-emerald-500" />
+                                      <span>Cash in Drawer</span>
+                                    </span>
                                     <b style={{ color: '#16a34a' }}>{cashPct}%</b>
                                   </div>
                                   <div className="progress-track">
@@ -3682,7 +4071,10 @@ Generated via Counter365 POS Cloud`;
 
                                 <div style={{ background: 'var(--card)', padding: '14px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>📱 GPay / UPI</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      <Smartphone className="w-4 h-4 text-blue-500" />
+                                      <span>GPay / UPI</span>
+                                    </span>
                                     <b style={{ color: '#2563eb' }}>{upiPct}%</b>
                                   </div>
                                   <div className="progress-track">
@@ -3693,7 +4085,10 @@ Generated via Counter365 POS Cloud`;
 
                                 <div style={{ background: 'var(--card)', padding: '14px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>⏳ Pending Khata</span>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                      <Clock className="w-4 h-4 text-amber-500" />
+                                      <span>Pending Dues</span>
+                                    </span>
                                     <b style={{ color: '#d97706' }}>{duePct}%</b>
                                   </div>
                                   <div className="progress-track">
@@ -3830,8 +4225,9 @@ Generated via Counter365 POS Cloud`;
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                             <div>
-                              <b style={{ fontSize: '18px', color: 'var(--ink)', display: 'block' }}>
-                                📑 Download & Share Monthly Statement
+                              <b style={{ fontSize: '18px', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Download className="w-5 h-5 text-[#ff5f00]" />
+                                <span>Download & Share Monthly Statement</span>
                               </b>
                               <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--mu)' }}>
                                 Export official audit sheets, preview statements, or dispatch reports to WhatsApp
@@ -3845,7 +4241,8 @@ Generated via Counter365 POS Cloud`;
                                 onClick={() => setShowReportPreviewModal(true)}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               >
-                                👁️ Preview Report
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Preview Report</span>
                               </button>
                               <button
                                 type="button"
@@ -3853,7 +4250,8 @@ Generated via Counter365 POS Cloud`;
                                 onClick={handleDownloadPDF}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               >
-                                📄 Download PDF
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Download PDF</span>
                               </button>
                               <button
                                 type="button"
@@ -3861,7 +4259,8 @@ Generated via Counter365 POS Cloud`;
                                 onClick={handleDownloadExcel}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               >
-                                📊 Download Excel
+                                <FileSpreadsheet className="w-3.5 h-3.5" />
+                                <span>Download Excel</span>
                               </button>
                               <button
                                 type="button"
@@ -3869,7 +4268,8 @@ Generated via Counter365 POS Cloud`;
                                 onClick={handleSendMonthlyWhatsApp}
                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               >
-                                💬 Send on WhatsApp
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>Send on WhatsApp</span>
                               </button>
                             </div>
                           </div>
@@ -3893,7 +4293,8 @@ Generated via Counter365 POS Cloud`;
                             onClick={handleDownloadExcel}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
-                            📊 Export Excel
+                            <FileSpreadsheet className="w-3.5 h-3.5" />
+                            <span>Export Excel</span>
                           </button>
                         </div>
 
@@ -4093,7 +4494,9 @@ Generated via Counter365 POS Cloud`;
                                   onClick={() => setExpandedSummaryDate(isDateOpen ? null : dKey)}
                                 >
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span style={{ fontSize: '18px' }}>📅</span>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--bsoft)', display: 'grid', placeItems: 'center' }}>
+                                      <Calendar className="w-4 h-4 text-[#ff5f00]" />
+                                    </div>
                                     <div>
                                       <b style={{ fontSize: '14px', color: 'var(--ink)' }}>{dFormatted}</b>
                                       <small style={{ display: 'block', color: 'var(--mu)', fontSize: '12px' }}>
@@ -4193,15 +4596,19 @@ Generated via Counter365 POS Cloud`;
                     type="button"
                     className={`settings-slider-btn ${settingsSlider === 'profile' ? 'active' : ''}`}
                     onClick={() => setSettingsSlider('profile')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    🏪 {isTamil ? 'கடை சுயவிவரம் & வன்பொருள்' : 'Shop Profile & Hardware'}
+                    <Store className="w-4 h-4" />
+                    <span>{isTamil ? 'கடை சுயவிவரம் & வன்பொருள்' : 'Shop Profile & Hardware'}</span>
                   </button>
                   <button
                     type="button"
                     className={`settings-slider-btn ${settingsSlider === 'staff' ? 'active' : ''}`}
                     onClick={() => setSettingsSlider('staff')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    👥 {isTamil ? 'பயனர்கள் & ஊழியர்கள்' : 'Users & Staff'} ({staffList.length + 1})
+                    <Users className="w-4 h-4" />
+                    <span>{isTamil ? 'பயனர்கள் & ஊழியர்கள்' : 'Users & Staff'} ({staffList.length + 1})</span>
                   </button>
                 </div>
 
@@ -4235,8 +4642,8 @@ Generated via Counter365 POS Cloud`;
                               {(shop?.name || 'C')[0].toUpperCase()}
                             </div>
                           )}
-                          <span className="profile-camera-badge" title="Upload new logo">
-                            📷
+                          <span className="profile-camera-badge" title="Upload new logo" style={{ display: 'grid', placeItems: 'center' }}>
+                            <Camera className="w-3.5 h-3.5 text-white" />
                           </span>
                           <input
                             type="file"
@@ -4294,9 +4701,13 @@ Generated via Counter365 POS Cloud`;
                             background: subscriptionStatus?.isPaidActive ? 'var(--okbg)' : 'var(--bsoft)',
                             color: subscriptionStatus?.isPaidActive ? 'var(--ok)' : 'var(--brand)',
                             fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
                           }}
                         >
-                          {subscriptionStatus?.isPaidActive ? '💎 Pro Active' : 'Free Tier'}
+                          <Crown className="w-3.5 h-3.5" />
+                          <span>{subscriptionStatus?.isPaidActive ? 'Pro Active' : 'Free Tier'}</span>
                         </span>
                       </div>
                     </div>
@@ -4322,19 +4733,39 @@ Generated via Counter365 POS Cloud`;
                           </div>
                         </div>
 
-                        <span
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '99px',
-                            fontWeight: 700,
-                            fontSize: '12px',
-                            background: subscriptionStatus?.isPaidActive ? '#059669' : '#ff5f00',
-                            color: '#ffffff',
-                            letterSpacing: '0.02em',
-                          }}
-                        >
-                          {subscriptionStatus?.isPaidActive ? 'PRO ACTIVE' : 'FREE TIER (100 BILLS)'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '99px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              background: subscriptionStatus?.isPaidActive ? '#059669' : '#ff5f00',
+                              color: '#ffffff',
+                              letterSpacing: '0.02em',
+                            }}
+                          >
+                            {subscriptionStatus?.isPaidActive ? 'PRO ACTIVE' : 'FREE TIER (100 BILLS)'}
+                          </span>
+
+                          <button
+                            type="button"
+                            className="btn p"
+                            onClick={() => setShowUpgradeProModal(true)}
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '99px',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                            }}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Upgrade to Pro</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Progress Bar of how much they have used */}
@@ -4414,7 +4845,9 @@ Generated via Counter365 POS Cloud`;
                               </div>
                             ) : (
                               <div className="no-printer-alert">
-                                <div style={{ fontSize: '26px', marginBottom: '6px' }}>🖨️</div>
+                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                                  <Printer className="w-8 h-8 text-[#76716B]" />
+                                </div>
                                 <b style={{ display: 'block', fontSize: '14px', marginBottom: '4px' }}>No printers found</b>
                                 <p style={{ margin: '0 0 12px', fontSize: '12px' }}>
                                   Turn on your Bluetooth/USB thermal printer or ensure print service is active.
@@ -4430,9 +4863,10 @@ Generated via Counter365 POS Cloud`;
                                       showToast('Scan completed. No printers responded.');
                                     }, 1200);
                                   }}
-                                  style={{ fontWeight: 600, fontSize: '12px' }}
+                                  style={{ fontWeight: 600, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                 >
-                                  🔄 Retry scan
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span>Retry scan</span>
                                 </button>
                               </div>
                             )}
@@ -4708,12 +5142,10 @@ Generated via Counter365 POS Cloud`;
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '22px',
-                            fontWeight: 700,
                             flexShrink: 0,
                           }}
                         >
-                          👑
+                          <Crown className="w-6 h-6 text-white" />
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4786,7 +5218,9 @@ Generated via Counter365 POS Cloud`;
                     {/* Staff Members List */}
                     {staffList.length === 0 ? (
                       <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-                        <div style={{ fontSize: '36px', marginBottom: '10px' }}>👥</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                          <Users className="w-10 h-10 text-[#76716B]" />
+                        </div>
                         <b style={{ fontSize: '16px', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
                           No additional staff users added yet
                         </b>
@@ -6005,6 +6439,344 @@ Generated via Counter365 POS Cloud`;
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collect Pending Due Modal (Partial & Full Settlement) */}
+      {collectingCustomerDue && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCollectingCustomerDue(null);
+          }}
+        >
+          <div
+            className="closing-modal-card"
+            style={{ maxWidth: '480px', padding: '24px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--bsoft)', display: 'grid', placeItems: 'center', color: 'var(--brand)' }}>
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, font: '700 18px var(--head)', color: 'var(--ink)' }}>
+                    Collect Pending Due
+                  </h3>
+                  <small style={{ color: 'var(--mu)', fontSize: '12px' }}>
+                    {collectingCustomerDue.customerName} {collectingCustomerDue.customerPhone ? `· +91 ${collectingCustomerDue.customerPhone}` : ''}
+                  </small>
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                onClick={() => setCollectingCustomerDue(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Total Outstanding Card */}
+            <div style={{ background: 'var(--card)', borderRadius: '12px', padding: '14px 16px', marginBottom: '16px', border: '1px solid var(--ln)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span style={{ fontSize: '12px', color: 'var(--mu)', display: 'block' }}>Total Outstanding Due</span>
+                <b style={{ fontSize: '22px', color: '#ff5f00', font: '700 22px var(--head)' }}>
+                  {fm(collectingCustomerDue.totalDue)}
+                </b>
+              </div>
+              <span style={{ fontSize: '11.5px', padding: '4px 10px', borderRadius: '99px', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', fontWeight: 600 }}>
+                {collectingCustomerDue.bills.length} pending {collectingCustomerDue.bills.length === 1 ? 'bill' : 'bills'}
+              </span>
+            </div>
+
+            {/* Quick Amount Selection Chips */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>
+                  Amount paying now (₹)
+                </label>
+                <small style={{ color: 'var(--mu)', fontSize: '11px' }}>Supports partial payments</small>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                {[10, 20, 50, 100].filter(amt => amt < collectingCustomerDue.totalDue).map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    className={`btn ${collectPayingNow === String(amt) ? 'b' : 'g'} sm`}
+                    onClick={() => setCollectPayingNow(String(amt))}
+                    style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '8px' }}
+                  >
+                    ₹{amt}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`btn ${collectPayingNow === String(collectingCustomerDue.totalDue) ? 'b' : 'g'} sm`}
+                  onClick={() => setCollectPayingNow(String(collectingCustomerDue.totalDue))}
+                  style={{ fontSize: '12px', padding: '5px 14px', borderRadius: '8px', fontWeight: 600 }}
+                >
+                  Full ({fm(collectingCustomerDue.totalDue)})
+                </button>
+              </div>
+
+              <input
+                type="number"
+                min="1"
+                max={collectingCustomerDue.totalDue}
+                className="in"
+                value={collectPayingNow}
+                onChange={(e) => setCollectPayingNow(e.target.value)}
+                placeholder="Enter amount to pay now..."
+                style={{ fontSize: '16px', fontWeight: 600, padding: '10px 14px', width: '100%' }}
+              />
+            </div>
+
+            {/* Live Calculation Preview */}
+            {(() => {
+              const paying = parseFloat(collectPayingNow) || 0;
+              const remaining = Math.max(0, collectingCustomerDue.totalDue - paying);
+              const isFull = remaining === 0;
+
+              return (
+                <div style={{ background: 'var(--card)', borderRadius: '12px', padding: '12px 14px', marginBottom: '16px', border: '1px solid var(--ln)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '6px' }}>
+                    <span style={{ color: 'var(--mu)' }}>Added to Today's Revenue:</span>
+                    <b style={{ color: '#059669', fontWeight: 700 }}>+ {fm(paying)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '6px' }}>
+                    <span style={{ color: 'var(--mu)' }}>Remaining Due Balance:</span>
+                    <b style={{ color: isFull ? 'var(--mu)' : '#ef4444', fontWeight: 700 }}>{fm(remaining)}</b>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px dashed var(--ln)', fontSize: '11.5px' }}>
+                    <span style={{ color: 'var(--mu)' }}>Resulting Status:</span>
+                    <span style={{ fontWeight: 700, color: isFull ? '#059669' : '#ff5f00' }}>
+                      {isFull ? '✓ Fully Cleared & Settled' : `⚠ Partial Payment (${fm(remaining)} still pending)`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Payment Method Selector */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)', display: 'block', marginBottom: '8px' }}>
+                Payment Received Via
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  className={`btn ${collectPayMethod === 'Cash' ? 'b' : 'g'}`}
+                  onClick={() => setCollectPayMethod('Cash')}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 0', fontSize: '13px' }}
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>Cash</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${collectPayMethod === 'GPay' ? 'b' : 'g'}`}
+                  onClick={() => setCollectPayMethod('GPay')}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px 0', fontSize: '13px' }}
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>UPI / GPay</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn g"
+                onClick={() => setCollectingCustomerDue(null)}
+                style={{ flex: 1 }}
+                disabled={isCollectingDue}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn b"
+                onClick={handleConfirmCollectDue}
+                disabled={isCollectingDue || !parseFloat(collectPayingNow) || parseFloat(collectPayingNow) <= 0}
+                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                {isCollectingDue ? (
+                  <span>Recording...</span>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Collect {fm(parseFloat(collectPayingNow) || 0)}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade to Pro Plans Modal */}
+      {showUpgradeProModal && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowUpgradeProModal(false);
+          }}
+        >
+          <div
+            className="closing-modal-card"
+            style={{ maxWidth: '780px', padding: '28px', width: '100%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #ff5f00, #ff8c00)', display: 'grid', placeItems: 'center', color: '#ffffff', boxShadow: '0 4px 14px rgba(255, 95, 0, 0.35)' }}>
+                  <Crown className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, font: '700 22px var(--head)', color: 'var(--ink)' }}>
+                    Upgrade to Counter365 Pro
+                  </h3>
+                  <small style={{ color: 'var(--mu)', fontSize: '13px' }}>
+                    Choose the plan that fits your shop's daily speed and scale
+                  </small>
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                onClick={() => setShowUpgradeProModal(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Plans Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              {PRO_PLANS.map((plan) => {
+                const isPopular = plan.popular;
+                const isBest = plan.bestValue;
+
+                return (
+                  <div
+                    key={plan.id}
+                    style={{
+                      background: 'var(--card)',
+                      borderRadius: '16px',
+                      padding: '20px 18px',
+                      border: isPopular ? '2px solid var(--brand)' : '1px solid var(--ln)',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      boxShadow: isPopular ? '0 8px 24px rgba(255, 95, 0, 0.15)' : 'none',
+                    }}
+                  >
+                    {isPopular && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '-11px',
+                          right: '16px',
+                          background: 'var(--brand)',
+                          color: '#ffffff',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          padding: '3px 10px',
+                          borderRadius: '99px',
+                          letterSpacing: '0.03em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Most Popular
+                      </span>
+                    )}
+                    {isBest && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '-11px',
+                          right: '16px',
+                          background: '#059669',
+                          color: '#ffffff',
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          padding: '3px 10px',
+                          borderRadius: '99px',
+                          letterSpacing: '0.03em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Best Value
+                      </span>
+                    )}
+
+                    <div>
+                      <b style={{ fontSize: '17px', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
+                        {plan.name}
+                      </b>
+                      <span style={{ fontSize: '12px', color: 'var(--mu)', display: 'block', marginBottom: '14px' }}>
+                        {plan.durationLabel}
+                      </span>
+
+                      <div style={{ marginBottom: '16px' }}>
+                        {plan.originalPrice && (
+                          <span style={{ textDecoration: 'line-through', color: 'var(--mu)', fontSize: '13px', marginRight: '6px' }}>
+                            {fm(plan.originalPrice)}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '26px', fontWeight: 800, color: 'var(--ink)', font: '800 26px var(--head)' }}>
+                          {fm(plan.price)}
+                        </span>
+                      </div>
+
+                      {/* Feature Bullets */}
+                      <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: 'var(--ink2)' }}>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Check className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                          <span>Unlimited fast bills & tokens</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Check className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                          <span>Thermal wireless printer sync</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Check className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                          <span>Multi-staff cashier permissions</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Check className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                          <span>Customer khata & partial dues</span>
+                        </li>
+                        <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Check className="w-4 h-4 text-[#059669] flex-shrink-0" />
+                          <span>Daily closing & GST exports</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={`btn ${isPopular || isBest ? 'b' : 'g'}`}
+                      onClick={() => handleActivateProPlan(plan.id)}
+                      style={{ width: '100%', justifyContent: 'center', fontWeight: 700, padding: '10px 0', fontSize: '13px' }}
+                    >
+                      <span>Choose {plan.name}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Bottom Guarantee */}
+            <div style={{ textAlign: 'center', color: 'var(--mu)', fontSize: '12px' }}>
+              <span>🔒 100% Secure Checkout via UPI, Debit Card, Credit Card & Net Banking. Instant Activation.</span>
             </div>
           </div>
         </div>

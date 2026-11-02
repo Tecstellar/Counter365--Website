@@ -14,7 +14,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     dashboard: 'Dashboard',
     pos_billing: 'Billing POS',
     bills: 'Bills',
-    pending_due: 'Khata Due',
+    pending_due: 'Pending Dues',
     menu: 'Menu Items',
     expenses: 'Expenses',
     contacts: 'Customers',
