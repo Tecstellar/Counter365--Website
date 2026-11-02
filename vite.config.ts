@@ -14,5 +14,8 @@ export default defineConfig({
     port: 3001,
     strictPort: true,
     host: true,
+    watch: {
+      ignored: ['**/.agents/**', '**/.git/**'],
+    },
   },
 });
