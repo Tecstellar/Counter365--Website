@@ -46,6 +46,9 @@ import {
   Layers,
   ArrowRight,
   RefreshCw,
+  MoreVertical,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -229,6 +232,14 @@ export const DashboardApp: React.FC = () => {
   const [collectPayMethod, setCollectPayMethod] = useState<PaymentMethod>('Cash');
   const [isCollectingDue, setIsCollectingDue] = useState<boolean>(false);
   const [expandedCustomerKey, setExpandedCustomerKey] = useState<string | null>(null);
+
+  // Customer Edit & Active/Inactive State
+  const [customerActionMenuId, setCustomerActionMenuId] = useState<string | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerRecord | null>(null);
+  const [editCustName, setEditCustName] = useState<string>('');
+  const [editCustPhone, setEditCustPhone] = useState<string>('');
+  const [editCustNotes, setEditCustNotes] = useState<string>('');
+  const [editCustIsActive, setEditCustIsActive] = useState<boolean>(true);
 
   // Tea Shop / Café Standard Expense Presets
   const TEA_SHOP_EXPENSE_PRESETS = [
@@ -1218,6 +1229,55 @@ Generated via Counter365 Cloud POS`;
     } catch (err) {
       console.error(err);
       showToast('Failed to save customer.');
+    }
+  };
+
+  // Toggle Customer Active/Inactive Status
+  const handleToggleCustomerActive = async (customer: CustomerRecord) => {
+    const nextActive = customer.isActive === false ? true : false;
+    const updated: CustomerRecord = {
+      ...customer,
+      isActive: nextActive,
+    };
+    try {
+      await contactService.saveCustomer(updated);
+      setCustomers((prev) => prev.map((c) => (c.id === customer.id ? updated : c)));
+      showToast(`${customer.name} marked as ${nextActive ? 'Active' : 'Inactive'}`);
+    } catch (err) {
+      showToast('Failed to update customer status.');
+    }
+    setCustomerActionMenuId(null);
+  };
+
+  // Save Edited Customer Details
+  const handleSaveEditedCustomer = async () => {
+    if (!editingCustomer) return;
+    const name = editCustName.trim();
+    if (!name) {
+      showToast('Customer name is required');
+      return;
+    }
+    const cleanPhone = editCustPhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
+      showToast('Mobile number must be exactly 10 digits');
+      return;
+    }
+
+    const updated: CustomerRecord = {
+      ...editingCustomer,
+      name,
+      phone: cleanPhone,
+      notes: editCustNotes.trim() || undefined,
+      isActive: editCustIsActive,
+    };
+
+    try {
+      await contactService.saveCustomer(updated);
+      setCustomers((prev) => prev.map((c) => (c.id === editingCustomer.id ? updated : c)));
+      showToast(`Customer ${name} updated successfully!`);
+      setEditingCustomer(null);
+    } catch (err) {
+      showToast('Failed to update customer.');
     }
   };
 
@@ -3615,39 +3675,126 @@ Generated via Counter365 POS Cloud`;
                           const q = searchQuery.toLowerCase().trim();
                           return !q || c.name.toLowerCase().includes(q) || (c.phone || '').includes(q);
                         })
-                        .map((c) => (
-                          <div key={c.id} className="card cc">
-                            <div className="row">
-                              <div className="av">{(c.name || 'C')[0].toUpperCase()}</div>
-                              <div>
-                                <b style={{ fontWeight: 600 }}>{c.name}</b>
-                                <br />
-                                <small style={{ color: 'var(--brand)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <Phone className="w-3 h-3 text-[#ff5f00]" />
-                                  <span>{c.phone || 'No phone'}</span>
-                                </small>
+                        .map((c) => {
+                          const isInactive = c.isActive === false;
+                          const isMenuOpen = customerActionMenuId === c.id;
+
+                          return (
+                            <div
+                              key={c.id}
+                              className="card cc"
+                              style={{
+                                position: 'relative',
+                                opacity: isInactive ? 0.72 : 1,
+                                filter: isInactive ? 'grayscale(0.35)' : undefined,
+                              }}
+                            >
+                              {/* Top-Right Three-Dots Action Menu */}
+                              <div style={{ position: 'absolute', top: '14px', right: '14px', zIndex: 10 }}>
+                                <button
+                                  type="button"
+                                  className="cust-menu-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCustomerActionMenuId((prev) => (prev === c.id ? null : c.id));
+                                  }}
+                                  title="Customer actions"
+                                  aria-label="Customer actions"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+
+                                {isMenuOpen && (
+                                  <>
+                                    <div
+                                      style={{ position: 'fixed', inset: 0, zIndex: 90 }}
+                                      onClick={() => setCustomerActionMenuId(null)}
+                                    />
+                                    <div className="cust-dropdown" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingCustomer(c);
+                                          setEditCustName(c.name || '');
+                                          setEditCustPhone(c.phone || '');
+                                          setEditCustNotes(c.notes || '');
+                                          setEditCustIsActive(c.isActive !== false);
+                                          setCustomerActionMenuId(null);
+                                        }}
+                                      >
+                                        <span className="icon-edit" style={{ width: '13px', height: '13px' }} />
+                                        <span>Edit Customer</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleCustomerActive(c)}
+                                        style={{ color: isInactive ? 'var(--ok)' : '#ef4444' }}
+                                      >
+                                        {isInactive ? (
+                                          <>
+                                            <UserCheck className="w-3.5 h-3.5 text-[#059669]" />
+                                            <span>Mark as Active</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <UserX className="w-3.5 h-3.5 text-[#ef4444]" />
+                                            <span>Mark as Inactive</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+
+                              <div className="row" style={{ paddingRight: '28px' }}>
+                                <div className="av">{(c.name || 'C')[0].toUpperCase()}</div>
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <b style={{ fontWeight: 600 }}>{c.name}</b>
+                                    {isInactive && (
+                                      <span
+                                        style={{
+                                          fontSize: '10.5px',
+                                          fontWeight: 700,
+                                          padding: '1px 6px',
+                                          borderRadius: '99px',
+                                          background: 'rgba(239, 68, 68, 0.12)',
+                                          color: '#ef4444',
+                                        }}
+                                      >
+                                        Inactive
+                                      </span>
+                                    )}
+                                  </div>
+                                  <small style={{ color: 'var(--brand)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <Phone className="w-3 h-3 text-[#ff5f00]" />
+                                    <span>{c.phone || 'No phone'}</span>
+                                  </small>
+                                </div>
+                              </div>
+                              <div className="mini">
+                                <span>
+                                  <b>{c.totalBills || 1}</b>Visits
+                                </span>
+                                <span>
+                                  <b>{fm((c.totalBills || 1) * 240)}</b>Total spent
+                                </span>
+                                <span>
+                                  <b
+                                    style={{
+                                      color: (c.pendingBalance || 0) > 0 ? 'var(--bad)' : 'var(--ok)',
+                                    }}
+                                  >
+                                    {(c.pendingBalance || 0) > 0 ? fm(c.pendingBalance) : 'Clear'}
+                                  </b>
+                                  Due
+                                </span>
                               </div>
                             </div>
-                            <div className="mini">
-                              <span>
-                                <b>{c.totalBills || 1}</b>Visits
-                              </span>
-                              <span>
-                                <b>{fm((c.totalBills || 1) * 240)}</b>Total spent
-                              </span>
-                              <span>
-                                <b
-                                  style={{
-                                    color: (c.pendingBalance || 0) > 0 ? 'var(--bad)' : 'var(--ok)',
-                                  }}
-                                >
-                                  {(c.pendingBalance || 0) > 0 ? fm(c.pendingBalance) : 'Clear'}
-                                </b>
-                                Due
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
 
                       {customers.length === 0 && (
                         <div className="empty" style={{ gridColumn: '1 / -1' }}>
@@ -6777,6 +6924,125 @@ Generated via Counter365 POS Cloud`;
             {/* Bottom Guarantee */}
             <div style={{ textAlign: 'center', color: 'var(--mu)', fontSize: '12px' }}>
               <span>🔒 100% Secure Checkout via UPI, Debit Card, Credit Card & Net Banking. Instant Activation.</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editingCustomer && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingCustomer(null);
+          }}
+        >
+          <div
+            className="closing-modal-card"
+            style={{ maxWidth: '440px', padding: '24px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--bsoft)', display: 'grid', placeItems: 'center', color: 'var(--brand)' }}>
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, font: '700 18px var(--head)', color: 'var(--ink)' }}>
+                    Edit Customer Details
+                  </h3>
+                  <small style={{ color: 'var(--mu)', fontSize: '12px' }}>
+                    Update customer name, phone, or active status
+                  </small>
+                </div>
+              </div>
+              <button
+                className="modal-close-btn"
+                onClick={() => setEditingCustomer(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              <div>
+                <label className="lbl" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>
+                  Customer Name *
+                </label>
+                <input
+                  className="search"
+                  style={{ width: '100%', margin: 0, padding: '10px 14px' }}
+                  value={editCustName}
+                  onChange={(e) => setEditCustName(e.target.value)}
+                  placeholder="e.g. Ramesh Kumar"
+                />
+              </div>
+
+              <div>
+                <label className="lbl" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>
+                  Mobile Number * (10 Digits)
+                </label>
+                <input
+                  type="tel"
+                  className="search"
+                  maxLength={10}
+                  style={{ width: '100%', margin: 0, padding: '10px 14px' }}
+                  value={editCustPhone}
+                  onChange={(e) => setEditCustPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="e.g. 9876543210"
+                />
+              </div>
+
+              <div>
+                <label className="lbl" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>
+                  Notes / Address (Optional)
+                </label>
+                <input
+                  className="search"
+                  style={{ width: '100%', margin: 0, padding: '10px 14px' }}
+                  value={editCustNotes}
+                  onChange={(e) => setEditCustNotes(e.target.value)}
+                  placeholder="e.g. Regular morning customer"
+                />
+              </div>
+
+              {/* Active / Inactive Status Toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'var(--card)', borderRadius: '10px', border: '1px solid var(--ln)' }}>
+                <div>
+                  <b style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>Customer Status</b>
+                  <small style={{ color: editCustIsActive ? '#059669' : '#ef4444', fontWeight: 600, fontSize: '12px' }}>
+                    {editCustIsActive ? 'Active Customer' : 'Inactive (Archived)'}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className={`sw ${editCustIsActive ? 'on' : ''}`}
+                  onClick={() => setEditCustIsActive((v) => !v)}
+                  role="switch"
+                  aria-checked={editCustIsActive}
+                  aria-label="Toggle active status"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn g"
+                onClick={() => setEditingCustomer(null)}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn b"
+                onClick={handleSaveEditedCustomer}
+                style={{ flex: 1 }}
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>
