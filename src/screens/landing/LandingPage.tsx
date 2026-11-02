@@ -21,6 +21,7 @@ export const LandingPage: React.FC = () => {
     isBestValue?: boolean;
     features: string[];
   } | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const pricingPlans = [
     {
@@ -263,6 +264,39 @@ export const LandingPage: React.FC = () => {
     };
   }, []);
 
+  // Handle Mobile Drawer scroll lock & keyboard dismissal
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    const handleResize = () => {
+      if (window.innerWidth > 991) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [mobileMenuOpen]);
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    e.preventDefault();
+    setMobileMenuOpen(false);
+    const targetEl = document.getElementById(targetId);
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   const languageReceiptData = {
     English: [
       ['Super Tea Full', '₹20'],
@@ -378,6 +412,220 @@ export const LandingPage: React.FC = () => {
         nav.pn .btn:hover {
           transform: translateY(-1px);
           box-shadow: 0 14px 30px -6px var(--o);
+        }
+
+        .nav-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .mobile-menu-toggle {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          background: rgba(255, 90, 0, 0.08);
+          border: 1.5px solid rgba(255, 90, 0, 0.28);
+          color: var(--o);
+          cursor: pointer;
+          transition: all .2s cubic-bezier(.16, 1, .3, 1);
+          padding: 0;
+          outline: none;
+        }
+        .mobile-menu-toggle:hover {
+          background: var(--o);
+          color: #ffffff;
+          transform: scale(1.05);
+        }
+        .mobile-menu-toggle:active {
+          transform: scale(0.94);
+        }
+
+        .mobile-nav-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(20, 14, 9, 0.6);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          z-index: 1098;
+          animation: navFadeIn .22s cubic-bezier(.16, 1, .3, 1) forwards;
+        }
+        .mobile-nav-drawer {
+          position: fixed;
+          top: 72px;
+          left: 12px;
+          right: 12px;
+          max-width: 480px;
+          margin: 0 auto;
+          background: rgba(255, 253, 249, 0.98);
+          border: 1.5px solid rgba(255, 90, 0, 0.25);
+          border-radius: 24px;
+          padding: 16px;
+          box-shadow: 0 24px 50px -10px rgba(27, 18, 11, 0.32), 0 10px 30px -5px rgba(255, 90, 0, 0.25);
+          backdrop-filter: blur(28px);
+          -webkit-backdrop-filter: blur(28px);
+          z-index: 1100;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          animation: navSlideDown .26s cubic-bezier(.16, 1, .3, 1) forwards;
+          max-height: calc(100vh - 90px);
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        @keyframes navFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes navSlideDown {
+          from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .mobile-drawer-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 2px 4px 10px;
+          border-bottom: 1px solid rgba(27, 18, 11, 0.08);
+        }
+        .mobile-drawer-title {
+          font-size: 0.74rem;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+          color: var(--mute);
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .mobile-drawer-close {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 1px solid rgba(27, 18, 11, 0.1);
+          background: rgba(27, 18, 11, 0.04);
+          color: var(--ink);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 14px;
+          line-height: 1;
+          transition: background .15s ease, color .15s ease;
+        }
+        .mobile-drawer-close:hover {
+          background: rgba(255, 90, 0, 0.12);
+          color: var(--o);
+        }
+        .mobile-nav-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .mobile-nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          text-decoration: none;
+          color: var(--ink);
+          background: transparent;
+          border: 1px solid transparent;
+          transition: all .16s ease;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .mobile-nav-item:hover, .mobile-nav-item:active {
+          background: rgba(255, 90, 0, 0.08);
+          border-color: rgba(255, 90, 0, 0.18);
+          transform: translateX(3px);
+        }
+        .mobile-nav-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: var(--soft);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.1rem;
+          flex-shrink: 0;
+        }
+        .mobile-nav-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+        }
+        .mobile-nav-label {
+          font-size: 0.94rem;
+          font-weight: 700;
+          color: var(--ink);
+        }
+        .mobile-nav-desc {
+          font-size: 0.74rem;
+          color: var(--mute);
+          font-weight: 400;
+        }
+        .mobile-nav-arrow {
+          color: var(--mute);
+          font-size: 1.2rem;
+          opacity: 0.5;
+          transition: transform .15s ease, opacity .15s ease;
+        }
+        .mobile-nav-item:hover .mobile-nav-arrow {
+          transform: translateX(3px);
+          opacity: 1;
+          color: var(--o);
+        }
+        .mobile-drawer-cta {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 4px;
+          padding-top: 12px;
+          border-top: 1px solid rgba(27, 18, 11, 0.08);
+        }
+        .mobile-primary-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 18px;
+          border-radius: 14px;
+          font: 700 0.95rem "DM Sans", sans-serif;
+          border: none;
+          cursor: pointer;
+          color: #fff;
+          background: linear-gradient(120deg, #FF5A00, #FF9A4D, #FF5A00);
+          background-size: 200% 100%;
+          box-shadow: 0 8px 22px -6px var(--o);
+          transition: transform .2s ease;
+        }
+        .mobile-primary-btn:active {
+          transform: scale(0.98);
+        }
+        .mobile-sub-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 4px 6px;
+          font-size: 0.78rem;
+          color: var(--mute);
+        }
+        .mobile-sub-link {
+          color: var(--o);
+          font-weight: 600;
+          text-decoration: underline;
+          text-underline-offset: 3px;
         }
 
         #menu {
@@ -714,41 +962,60 @@ export const LandingPage: React.FC = () => {
         .fl { color: #fff; text-decoration: none; }
         .fl:hover { text-decoration: underline; }
 
+        @media (max-width: 991px) {
+          nav.pn {
+            top: 8px;
+            width: calc(100% - 20px);
+            margin: 8px auto 0;
+            height: 56px;
+            padding: 0 8px 0 14px;
+            border-radius: 99px;
+            box-sizing: border-box;
+          }
+          nav.pn .logo img {
+            height: 26px;
+            max-height: 28px;
+          }
+          #menu {
+            display: none !important;
+          }
+          .mobile-menu-toggle {
+            display: flex !important;
+          }
+          .desktop-only-btn {
+            display: none !important;
+          }
+          .mobile-only-btn {
+            display: inline-flex !important;
+            padding: 8px 14px !important;
+            font-size: 0.82rem !important;
+            border-radius: 99px !important;
+          }
+        }
+
+        @media (min-width: 992px) {
+          .mobile-menu-toggle {
+            display: none !important;
+          }
+          .mobile-only-btn {
+            display: none !important;
+          }
+          .desktop-only-btn {
+            display: inline-flex !important;
+          }
+          .mobile-nav-backdrop,
+          .mobile-nav-drawer {
+            display: none !important;
+          }
+        }
+
         @media (max-width: 860px) {
           .hero .wrap, .cmp, .lang, .fg { grid-template-columns: 1fr; }
           .bc, .bc.w { grid-column: span 6; }
           .stats { grid-template-columns: 1fr; }
           section { padding: 64px 0; }
           .band, .fin { margin: 0 12px; }
-          #menu {
-            position: fixed;
-            top: auto;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: calc(100% - 24px);
-            max-width: 420px;
-            height: 60px;
-            justify-content: space-around;
-            padding: 0 6px;
-            margin: 0;
-            border-radius: 99px;
-            background: #FFFDF9;
-            background: rgba(255, 253, 249, 0.96);
-            border: 1.5px solid rgba(255, 90, 0, 0.25);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 16px 36px -10px rgba(255, 90, 0, 0.4);
-            z-index: 1000;
-          }
-          #menu a {
-            height: auto;
-            padding: 8px 10px;
-            font-size: .78rem;
-          }
-          #menu a b { display: none; }
-          #menu a u { display: block; text-decoration: none; }
-          footer.ft { padding-bottom: 120px; }
+          footer.ft { padding-bottom: 40px; }
         }
       `}</style>
 
@@ -802,48 +1069,171 @@ export const LandingPage: React.FC = () => {
 
       {/* Navigation Header */}
       <nav className="pn">
-        <a className="logo" href="#top" title="Counter 365 Home">
-          <img src="/counter365_brand_light.png" alt="Counter 365" style={{ height: '32px', width: 'auto', objectFit: 'contain', display: 'block' }} />
+        <a className="logo" href="#top" title="Counter 365 Home" onClick={(e) => handleNavClick(e, 'top')}>
+          <img src="/counter365_brand_light.png" alt="Counter 365" style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }} />
         </a>
 
         {/* Center Menu Links (Integrated inside Navbar for zero overlap) */}
         <ul id="menu">
           <li>
-            <a href="#top">
+            <a href="#top" onClick={(e) => handleNavClick(e, 'top')}>
               <b>Home</b>
               <u>Home</u>
             </a>
           </li>
           <li>
-            <a href="#why">
+            <a href="#why" onClick={(e) => handleNavClick(e, 'why')}>
               <b>Why Counter 365</b>
               <u>Why</u>
             </a>
           </li>
           <li>
-            <a href="#features">
+            <a href="#features" onClick={(e) => handleNavClick(e, 'features')}>
               <b>Features</b>
               <u>Features</u>
             </a>
           </li>
           <li>
-            <a href="#who">
+            <a href="#who" onClick={(e) => handleNavClick(e, 'who')}>
               <b>Who it’s for</b>
               <u>Who</u>
             </a>
           </li>
           <li>
-            <a href="#pricing">
+            <a href="#pricing" onClick={(e) => handleNavClick(e, 'pricing')}>
               <b>Pricing</b>
               <u>Pricing</u>
             </a>
           </li>
         </ul>
 
-        <button className="btn" onClick={() => navigate('/login')}>
-          Get started
-        </button>
+        <div className="nav-actions">
+          {/* Mobile compact action */}
+          <button className="btn mobile-only-btn" onClick={() => navigate('/login')}>
+            Start free
+          </button>
+
+          {/* Desktop primary action */}
+          <button className="btn desktop-only-btn" onClick={() => navigate('/login')}>
+            Get started
+          </button>
+
+          {/* Mobile Hamburger / Close Toggle */}
+          <button
+            className="mobile-menu-toggle"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          >
+            {mobileMenuOpen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="7" x2="20" y2="7" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="17" x2="20" y2="17" />
+              </svg>
+            )}
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile Navigation Drawer Modal */}
+      {mobileMenuOpen && (
+        <>
+          <div className="mobile-nav-backdrop" onClick={() => setMobileMenuOpen(false)} />
+          <aside className="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Navigation Menu">
+            <div className="mobile-drawer-header">
+              <span className="mobile-drawer-title">
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--o)', display: 'inline-block' }} />
+                Menu
+              </span>
+              <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+                ✕
+              </button>
+            </div>
+
+            <ul className="mobile-nav-list">
+              <li>
+                <a href="#top" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'top')}>
+                  <span className="mobile-nav-icon">🏠</span>
+                  <div className="mobile-nav-text">
+                    <span className="mobile-nav-label">Home</span>
+                    <span className="mobile-nav-desc">Overview & live interactive demo</span>
+                  </div>
+                  <span className="mobile-nav-arrow">›</span>
+                </a>
+              </li>
+              <li>
+                <a href="#why" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'why')}>
+                  <span className="mobile-nav-icon">⚡</span>
+                  <div className="mobile-nav-text">
+                    <span className="mobile-nav-label">Why Counter 365</span>
+                    <span className="mobile-nav-desc">1-tap billing built for peak rush</span>
+                  </div>
+                  <span className="mobile-nav-arrow">›</span>
+                </a>
+              </li>
+              <li>
+                <a href="#features" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'features')}>
+                  <span className="mobile-nav-icon">✨</span>
+                  <div className="mobile-nav-text">
+                    <span className="mobile-nav-label">Features</span>
+                    <span className="mobile-nav-desc">KOT, Khata, Thermal Print & Reports</span>
+                  </div>
+                  <span className="mobile-nav-arrow">›</span>
+                </a>
+              </li>
+              <li>
+                <a href="#who" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'who')}>
+                  <span className="mobile-nav-icon">☕</span>
+                  <div className="mobile-nav-text">
+                    <span className="mobile-nav-label">Who It’s For</span>
+                    <span className="mobile-nav-desc">Tea stalls, cafés, bakeries & food courts</span>
+                  </div>
+                  <span className="mobile-nav-arrow">›</span>
+                </a>
+              </li>
+              <li>
+                <a href="#pricing" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'pricing')}>
+                  <span className="mobile-nav-icon">🏷️</span>
+                  <div className="mobile-nav-text">
+                    <span className="mobile-nav-label">Pricing Plans</span>
+                    <span className="mobile-nav-desc">Starting at ₹833/month</span>
+                  </div>
+                  <span className="mobile-nav-arrow">›</span>
+                </a>
+              </li>
+            </ul>
+
+            <div className="mobile-drawer-cta">
+              <button
+                className="mobile-primary-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  navigate('/login');
+                }}
+              >
+                <span>Launch Counter Web / Login</span>
+                <span>→</span>
+              </button>
+              <div className="mobile-sub-actions">
+                <span>Free 100 bills included</span>
+                <a
+                  href="https://play.google.com/store/search?q=Counter%20365&c=apps"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mobile-sub-link"
+                >
+                  Android App ↗
+                </a>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
 
       {/* Marquee Category Strip */}
       <div className="mq">
