@@ -227,30 +227,23 @@
 }
 
 .c365-dashboard .card {
-  background: var(--card);
-  border: 1px solid var(--ln);
-  border-radius: 12px;
-  padding: 24px;
+  background: #fff;
+  border-radius: 14px 14px 0 0;
+  padding: 26px 26px 28px;
   position: relative;
-  margin-bottom: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 10px 14px rgba(20, 21, 26, 0.07));
 }
 
-.c365-dashboard .card.receipt-slip {
-  border-radius: 12px 12px 0 0;
-  border-bottom: 0;
-}
-
-.c365-dashboard .card.receipt-slip::after {
+.c365-dashboard .card::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -10px;
-  height: 10px;
-  background: linear-gradient(135deg, var(--card) 25%, transparent 25%) -6px 0, linear-gradient(225deg, var(--card) 25%, transparent 25%) -6px 0;
-  background-size: 12px 12px;
+  bottom: -12px;
+  height: 12px;
+  background: linear-gradient(135deg, #fff 25%, transparent 25%) -8px 0, linear-gradient(225deg, #fff 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
 }
 
 .c365-dashboard .h3 {
@@ -519,19 +512,25 @@
 /* Rail */
 .c365-dashboard .rail {
   position: relative;
-  background: var(--card);
-  border-right: 1px solid var(--ln);
+  background: #fff;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px 18px;
+  padding: 26px 16px 18px;
   min-height: 0;
-  margin-right: 0;
-  filter: none;
+  margin-right: 12px;
+  filter: drop-shadow(6px 0 12px rgba(20, 21, 26, 0.07));
   z-index: 10;
 }
 
 .c365-dashboard .rail::after {
-  display: none;
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -12px;
+  width: 12px;
+  background: linear-gradient(135deg, #fff 25%, transparent 25%) 0 -8px, linear-gradient(45deg, #fff 25%, transparent 25%) 0 -8px;
+  background-size: 16px 16px;
 }
 
 .c365-dashboard .brand-logo-container {
@@ -2261,13 +2260,14 @@
 
 /* Base Rails & Bar */
 .c365-dashboard.theme-dark .rail {
-  background: #12141c;
-  border-right: 1px solid #202433;
-  filter: none;
+  background: #161922;
+  filter: drop-shadow(6px 0 16px rgba(0, 0, 0, 0.45));
 }
 
 .c365-dashboard.theme-dark .rail::after {
-  display: none;
+  background: linear-gradient(135deg, #161922 25%, transparent 25%) 0 -8px,
+              linear-gradient(45deg, #161922 25%, transparent 25%) 0 -8px;
+  background-size: 16px 16px;
 }
 
 .c365-dashboard.theme-dark .bar {
@@ -2321,19 +2321,23 @@
   color: #f8fafc;
 }
 
-/* Card & Quiet Surfaces */
+/* Card & Jagged Sawtooth Edge */
 .c365-dashboard.theme-dark .card {
   background: #161922;
-  border: 1px solid #242938;
   color: #f8fafc;
-  filter: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.4));
 }
 
-.c365-dashboard.theme-dark .card.receipt-slip::after {
-  background: linear-gradient(135deg, #161922 25%, transparent 25%) -6px 0,
-              linear-gradient(225deg, #161922 25%, transparent 25%) -6px 0;
-  background-size: 12px 12px;
+.c365-dashboard.theme-dark .card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px;
+  height: 12px;
+  background: linear-gradient(135deg, #161922 25%, transparent 25%) -8px 0,
+              linear-gradient(225deg, #161922 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
 }
 
 .c365-dashboard.theme-dark .num,
