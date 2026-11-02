@@ -341,6 +341,7 @@ export const billingService = {
       if (bill.items && bill.items.length > 0) {
         const itemRows = bill.items.map(it => ({
           id: it.id || generateUUID(),
+          shop_id: bill.shopId,
           bill_id: bill.id,
           menu_item_id: it.menuItemId || null,
           item_name: it.itemName,
@@ -357,7 +358,47 @@ export const billingService = {
         }
       }
 
-      // 3. Update customer balance if pending
+      // 3. Insert payment ledger entry if paid amount > 0
+      if (bill.paidAmount > 0) {
+        try {
+          await (supabase.from('payments') as any).insert({
+            id: generateUUID(),
+            shop_id: bill.shopId,
+            bill_id: bill.id,
+            payment_mode: bill.paymentMode,
+            amount: bill.paidAmount,
+            status: 'successful',
+            paid_at: bill.createdAt,
+            created_at: bill.createdAt,
+          });
+        } catch (payErr) {
+          console.warn('Payment insert error:', payErr);
+        }
+      }
+
+      // 4. Insert pending_payments entry if pending amount > 0
+      if (bill.pendingAmount > 0) {
+        try {
+          await (supabase.from('pending_payments') as any).insert({
+            id: generateUUID(),
+            shop_id: bill.shopId,
+            bill_id: bill.id,
+            customer_id: bill.customerId || null,
+            customer_name: bill.customerName || 'Valued Customer',
+            customer_phone: bill.customerPhone || null,
+            amount_due: bill.pendingAmount,
+            amount_paid: 0,
+            status: 'open',
+            notes: null,
+            created_at: bill.createdAt,
+            updated_at: bill.createdAt,
+          });
+        } catch (penErr) {
+          console.warn('Pending payment insert error:', penErr);
+        }
+      }
+
+      // 5. Update customer balance if pending
       if (bill.pendingAmount > 0 && (bill.customerPhone || bill.customerName)) {
         try {
           const custKey = `@counterpro/customers_${bill.shopId}`;
@@ -530,6 +571,65 @@ export const billingService = {
           updated_at: new Date().toISOString(),
         })
         .eq('id', billId);
+
+      // Record in payments table
+      await (supabase.from('payments') as any).insert({
+        id: generateUUID(),
+        shop_id: shopId,
+        bill_id: billId,
+        payment_mode: paymentMode,
+        amount: paidAmount,
+        status: 'successful',
+        paid_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
+
+      // Update pending_payments table
+      const { data: penRows } = await (supabase.from('pending_payments') as any)
+        .select('*')
+        .eq('bill_id', billId)
+        .limit(1);
+
+      if (penRows && penRows.length > 0) {
+        const pen = penRows[0];
+        const updatedPaid = (Number(pen.amount_paid) || 0) + paidAmount;
+        const status = newPending === 0 ? 'settled' : 'partial';
+        await (supabase.from('pending_payments') as any)
+          .update({
+            amount_paid: updatedPaid,
+            status,
+            settled_at: newPending === 0 ? new Date().toISOString() : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', pen.id);
+      }
+
+      // Update customer pending balance in local storage & supabase
+      if (match.customerPhone || match.customerName) {
+        const custKey = `@counterpro/customers_${shopId}`;
+        const customers = await storage.getObject<CustomerRecord[]>(custKey, []);
+        const cleanPhone = match.customerPhone?.slice(-10);
+
+        const cust = customers.find(c =>
+          (cleanPhone && c.phone && c.phone.slice(-10) === cleanPhone) ||
+          (match.customerName && c.name.toLowerCase() === match.customerName.toLowerCase())
+        );
+
+        if (cust) {
+          cust.pendingBalance = Math.max(0, (cust.pendingBalance || 0) - paidAmount);
+          if (cust.pendingBalance === 0) {
+            cust.statusTag = 'Regular';
+          }
+          await storage.setObject(custKey, customers);
+          await (supabase.from('customers') as any)
+            .update({
+              pending_balance: cust.pendingBalance,
+              status_tag: cust.statusTag,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', cust.id);
+        }
+      }
     } catch (err) {
       console.warn('collectPendingDue remote error:', err);
     }

@@ -33,11 +33,13 @@ export const expenseService = {
         const records: ExpenseRecord[] = data.map((e: any) => ({
           id: e.id,
           shopId: e.shop_id,
-          description: e.description,
+          title: e.title || e.description,
+          description: e.description || e.title || '',
           amount: Number(e.amount) || 0,
           category: e.category || 'Other Expenses',
           paymentMode: e.payment_mode || 'Cash',
           expenseDate: e.expense_date,
+          vendorId: e.vendor_id || null,
           createdByName: e.created_by_name,
           createdByRole: e.created_by_role,
           createdAt: e.created_at,
@@ -69,6 +71,7 @@ export const expenseService = {
     const newExpense: ExpenseRecord = {
       id: generateUUID(),
       shopId,
+      title: params.description.trim(),
       description: params.description.trim(),
       amount: Math.round(params.amount),
       category: params.category || 'Other Expenses',
@@ -87,6 +90,7 @@ export const expenseService = {
       await (supabase.from('expenses') as any).insert({
         id: newExpense.id,
         shop_id: shopId,
+        title: newExpense.description,
         description: newExpense.description,
         amount: newExpense.amount,
         category: newExpense.category,

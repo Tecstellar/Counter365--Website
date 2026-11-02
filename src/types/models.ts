@@ -53,7 +53,9 @@ export interface Shop {
   invoiceResetCycle?: 'monthly' | 'yearly';
   totalBillsCreated?: number;
   upiId?: string | null;
+  isActive?: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ShopMember {
@@ -195,6 +197,7 @@ export interface PendingPaymentRecord {
 export interface ExpenseRecord {
   id: string;
   shopId: string;
+  title?: string;
   description: string;
   amount: number;
   category?: string;
@@ -216,10 +219,13 @@ export interface CustomerRecord {
   location?: string | null;
   notes?: string | null;
   totalBills: number;
+  totalSpent?: number;
   pendingBalance: number;
   statusTag?: 'MVP' | 'Regular' | 'Pending';
   isActive?: boolean;
   isVip?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface VendorRecord {
@@ -232,6 +238,49 @@ export interface VendorRecord {
   schedule?: string | null;
   notes?: string | null;
   isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CashSessionRecord {
+  id: string;
+  shopId: string;
+  openingFloat: number;
+  closingCash: number;
+  actualCash: number;
+  difference: number;
+  totalSales: number;
+  totalExpenses: number;
+  status: 'open' | 'closed';
+  openedAt: string;
+  closedAt?: string | null;
+  createdAt: string;
+}
+
+export interface AccountDeletionRecord {
+  id: string;
+  userId?: string | null;
+  shopId?: string | null;
+  shopName?: string | null;
+  ownerName?: string | null;
+  phone?: string | null;
+  reason: string;
+  feedback?: string | null;
+  deletedAt: string;
+  metadata?: Record<string, any>;
+}
+
+export interface AuditLogRecord {
+  id: string;
+  shopId: string;
+  userId?: string | null;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  oldValues?: any;
+  newValues?: any;
+  ipAddress?: string | null;
+  createdAt: string;
 }
 
 export interface DayClosingReport {

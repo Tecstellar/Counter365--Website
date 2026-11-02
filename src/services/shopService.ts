@@ -196,9 +196,12 @@ export const shopService = {
         id: generateUUID(),
         shop_id: shop.id,
         plan: 'free',
+        plan_name: 'Free Forever',
         status: 'active',
         amount: 0.00,
         interval: 'lifetime',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
 
       // 5. Bootstrap starter menu items
