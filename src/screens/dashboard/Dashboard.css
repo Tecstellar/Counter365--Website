@@ -1,0 +1,3166 @@
+:root {
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  --bg: #edeef3;
+  --card: #fff;
+  --ink: #14151a;
+  --ink2: #4a4e5c;
+  --mu: #8b8fa0;
+  --ln: #e4e6ee;
+  --brand: #ff5f00;
+  --bsoft: #fff0e6;
+  --ind: #3b3fd8;
+  --ok: #0e9f6e;
+  --okbg: #e2f6ee;
+  --bad: #d92d20;
+  --badbg: #fdeceb;
+  --sans: "Lexend", "Noto Sans Tamil", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --head: "Bricolage Grotesque", "Noto Sans Tamil", system-ui, sans-serif;
+}
+
+.c365-dashboard {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.c365-dashboard * {
+  box-sizing: border-box;
+}
+
+.c365-dashboard button,
+.c365-dashboard input,
+.c365-dashboard select {
+  font: inherit;
+  color: inherit;
+}
+
+.c365-dashboard button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+}
+
+.c365-dashboard button:focus-visible,
+.c365-dashboard input:focus-visible,
+.c365-dashboard select:focus-visible,
+.c365-dashboard a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.c365-dashboard .ic {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.c365-dashboard .shell {
+  display: grid;
+  grid-template-columns: 268px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.c365-dashboard .app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.c365-dashboard .bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 34px;
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.c365-dashboard .shop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.c365-dashboard .mk {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background: var(--ink);
+  display: grid;
+  place-items: center;
+}
+
+.c365-dashboard .mk::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 3px solid #fff;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+
+.c365-dashboard .shop b {
+  font: 600 17px var(--head);
+  letter-spacing: -0.01em;
+}
+
+.c365-dashboard .shop small {
+  display: block;
+  color: var(--mu);
+  font-size: 12.5px;
+}
+
+.c365-dashboard .acts {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.c365-dashboard .main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 34px 44px;
+  min-height: 0;
+}
+
+.c365-dashboard .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.c365-dashboard .head h1 {
+  margin: 0;
+  font: 600 clamp(32px, 4vw, 48px) / 1.04 var(--head);
+  letter-spacing: -0.035em;
+}
+
+.c365-dashboard .head p {
+  margin: 8px 0 0;
+  color: var(--mu);
+  font-size: 14px;
+}
+
+.c365-dashboard .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 99px;
+  padding: 12px 22px;
+  font-weight: 500;
+  background: var(--brand);
+  color: #fff;
+  transition: transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 10px 20px -10px rgba(255, 95, 0, 0.7);
+}
+
+.c365-dashboard .btn:hover {
+  transform: translateY(-1px);
+}
+
+.c365-dashboard .btn:active {
+  transform: scale(0.98);
+}
+
+.c365-dashboard .btn.g {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.c365-dashboard .btn.g:hover {
+  background: #fff;
+}
+
+.c365-dashboard .btn.k {
+  background: var(--ink);
+  box-shadow: none;
+}
+
+.c365-dashboard .btn.sm {
+  padding: 9px 16px;
+  font-size: 13px;
+}
+
+.c365-dashboard .btn[disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.c365-dashboard .tag {
+  background: var(--okbg);
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 99px;
+}
+
+.c365-dashboard .card {
+  background: #fff;
+  border-radius: 14px 14px 0 0;
+  padding: 26px 26px 28px;
+  position: relative;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 10px 14px rgba(20, 21, 26, 0.07));
+}
+
+.c365-dashboard .card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px;
+  height: 12px;
+  background: linear-gradient(135deg, #fff 25%, transparent 25%) -8px 0, linear-gradient(225deg, #fff 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
+}
+
+.c365-dashboard .h3 {
+  font: 600 20px var(--head);
+  letter-spacing: -0.01em;
+}
+
+.c365-dashboard .lbl {
+  color: var(--mu);
+  font-size: 13.5px;
+}
+
+.c365-dashboard .num {
+  font: 600 38px / 1.1 var(--head);
+  letter-spacing: -0.03em;
+  margin: 10px 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.c365-dashboard .cap {
+  color: var(--mu);
+  font-size: 13px;
+}
+
+.c365-dashboard a.cap,
+.c365-dashboard .lnk {
+  color: var(--ink2);
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.c365-dashboard .lnk:hover,
+.c365-dashboard a.cap:hover {
+  color: var(--brand);
+}
+
+.c365-dashboard .top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.c365-dashboard .up {
+  color: var(--ok);
+  font-weight: 500;
+}
+
+/* Day Ring */
+.c365-dashboard .hm {
+  display: grid;
+  grid-template-columns: minmax(360px, 470px) minmax(260px, 1fr) 340px;
+  gap: 44px;
+  align-items: start;
+}
+
+.c365-dashboard .stage {
+  position: relative;
+  width: 100%;
+  max-width: 470px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+}
+
+.c365-dashboard .stage svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.c365-dashboard .rb {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: c365_out 0.9s cubic-bezier(0.3, 0.1, 0.2, 1) backwards;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.c365-dashboard .rb:hover {
+  opacity: 0.65;
+}
+
+.c365-dashboard .rb.cur {
+  animation: c365_out 0.9s cubic-bezier(0.3, 0.1, 0.2, 1) backwards, c365_beat 2.4s ease 1.6s infinite;
+}
+
+.c365-dashboard .pg {
+  animation: c365_fill 1.5s cubic-bezier(0.3, 0.1, 0.2, 1) 0.2s backwards;
+}
+
+.c365-dashboard .mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.c365-dashboard .mid small {
+  color: var(--mu);
+  font-size: 13px;
+}
+
+.c365-dashboard .mid span {
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+
+.c365-dashboard .mid b {
+  font: 600 clamp(34px, 3.6vw, 48px) / 1 var(--head);
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.c365-dashboard .mc {
+  display: grid;
+  gap: 40px;
+  align-content: start;
+  padding-top: 6px;
+}
+
+.c365-dashboard .pbar {
+  display: flex;
+  height: 16px;
+  gap: 3px;
+  margin: 16px 0 18px;
+}
+
+.c365-dashboard .pbar i {
+  display: block;
+  border-radius: 99px;
+  transition: flex 0.6s;
+}
+
+.c365-dashboard .pbar .due {
+  background: repeating-linear-gradient(135deg, #ffd0b0 0 4px, #fff 4px 8px);
+  border: 1px solid #ffc29d;
+}
+
+.c365-dashboard .pl {
+  display: grid;
+  gap: 12px;
+}
+
+.c365-dashboard .pl p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink2);
+}
+
+.c365-dashboard .pl i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.c365-dashboard .pl b {
+  margin-left: auto;
+  font: 600 18px var(--head);
+  color: var(--ink);
+}
+
+.c365-dashboard .lg {
+  margin-top: 8px;
+}
+
+.c365-dashboard .lg p {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  padding: 10px 0;
+  color: var(--ink2);
+}
+
+.c365-dashboard .lg b {
+  font: 600 30px var(--head);
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.c365-dashboard .lg p.net {
+  border-top: 2px solid var(--ink);
+  margin-top: 8px;
+  padding-top: 16px;
+  color: var(--ink);
+}
+
+.c365-dashboard .lg p.net b {
+  font-size: 48px;
+  color: var(--brand);
+}
+
+.c365-dashboard .tape .tl {
+  margin: 14px 0 4px;
+}
+
+.c365-dashboard .tp {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px dashed #d6d9e4;
+  overflow: hidden;
+}
+
+.c365-dashboard .tp:first-child {
+  border-top: 0;
+}
+
+.c365-dashboard .tp div {
+  min-width: 0;
+}
+
+.c365-dashboard .tp b {
+  display: block;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c365-dashboard .tp small {
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.c365-dashboard .tp i {
+  flex: 1;
+}
+
+.c365-dashboard .tp span {
+  font: 600 16px var(--head);
+}
+
+.c365-dashboard .tp span.kh {
+  color: var(--brand);
+}
+
+.c365-dashboard .tp.fresh {
+  animation: c365_drop 0.6s cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+
+.c365-dashboard .tt {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 14px 0 12px;
+  border-top: 2px solid var(--ink);
+  margin-top: 6px;
+}
+
+.c365-dashboard .tt b {
+  font: 600 26px var(--head);
+  letter-spacing: -0.02em;
+}
+
+/* Rail */
+.c365-dashboard .rail {
+  position: relative;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 26px 16px 18px;
+  min-height: 0;
+  margin-right: 12px;
+  filter: drop-shadow(6px 0 12px rgba(20, 21, 26, 0.07));
+  z-index: 10;
+}
+
+.c365-dashboard .rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -12px;
+  width: 12px;
+  background: linear-gradient(135deg, #fff 25%, transparent 25%) 0 -8px, linear-gradient(45deg, #fff 25%, transparent 25%) 0 -8px;
+  background-size: 16px 16px;
+}
+
+.c365-dashboard .brand-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px 22px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--ln);
+  flex: none;
+}
+
+.c365-dashboard .brand-full-logo {
+  width: 100%;
+  max-width: 205px;
+  height: auto;
+  max-height: 52px;
+  object-fit: contain;
+  display: block;
+}
+
+.c365-dashboard .brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 6px 12px 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--ln);
+  font: 700 24px var(--head);
+  letter-spacing: -0.035em;
+  flex: none;
+}
+
+.c365-dashboard .brand svg,
+.c365-dashboard .brand img {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  object-fit: contain;
+}
+
+.c365-dashboard .brand b {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.c365-dashboard .keys {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+  min-height: 0;
+}
+
+.c365-dashboard .keys::-webkit-scrollbar {
+  display: none;
+}
+
+.c365-dashboard .gt {
+  margin: 18px 12px 6px;
+  color: var(--mu);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.c365-dashboard .keys button {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 7px 12px 7px 8px;
+  border-radius: 15px;
+  color: var(--ink2);
+  font-size: 14.5px;
+  text-align: left;
+  position: relative;
+  transition: background 0.2s, color 0.2s;
+  width: 100%;
+}
+
+.c365-dashboard .keys .ch {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  transition: 0.2s;
+  flex: none;
+}
+
+.c365-dashboard .keys button:hover {
+  background: #f6f7fa;
+  color: var(--ink);
+}
+
+.c365-dashboard .keys button.on {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.c365-dashboard .keys button.on .ch {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 8px 14px -8px rgba(255, 95, 0, 0.85);
+}
+
+.c365-dashboard .keys button.on::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.c365-dashboard .keys em {
+  position: absolute;
+  right: 16px;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--mu);
+  opacity: 0;
+  transition: 0.2s;
+}
+
+.c365-dashboard .keys button:not(.on):hover em {
+  opacity: 1;
+}
+
+.c365-dashboard .mode {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--bg);
+  flex: none;
+}
+
+.c365-dashboard .mode .ch {
+  background: var(--ink);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.c365-dashboard .mode small {
+  display: block;
+  color: var(--mu);
+  font-size: 12px;
+}
+
+.c365-dashboard .mode b {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.c365-dashboard .lv {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3dd68c;
+  animation: c365_lv 2s infinite;
+  flex: none;
+}
+
+@media (max-width: 900px) {
+  .c365-dashboard .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .c365-dashboard .rail {
+    margin: 0;
+    padding: 10px 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    filter: none;
+    border-radius: 0 0 22px 22px;
+  }
+  .c365-dashboard .rail::after,
+  .c365-dashboard .mode,
+  .c365-dashboard .gt,
+  .c365-dashboard .keys em {
+    display: none;
+  }
+  .c365-dashboard .brand-logo-container {
+    padding: 0 8px;
+    margin-bottom: 0;
+    border-bottom: none;
+  }
+  .c365-dashboard .brand-full-logo {
+    max-width: 130px;
+    max-height: 34px;
+  }
+  .c365-dashboard .brand {
+    padding: 0;
+  }
+  .c365-dashboard .brand span {
+    display: none;
+  }
+  .c365-dashboard .keys {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .c365-dashboard .keys button {
+    padding: 5px;
+    flex: none;
+    width: auto;
+  }
+  .c365-dashboard .keys .lb {
+    display: none;
+  }
+  .c365-dashboard .keys .on .lb {
+    display: inline;
+  }
+  .c365-dashboard .keys button.on::after {
+    display: none;
+  }
+}
+
+/* Shared */
+.c365-dashboard .g3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.c365-dashboard .scroll {
+  overflow-x: auto;
+}
+
+.c365-dashboard .tb {
+  min-width: 620px;
+}
+
+.c365-dashboard .tr {
+  display: grid;
+  grid-template-columns: var(--c);
+  gap: 14px;
+  align-items: center;
+  padding: 14px 8px;
+  border-top: 1px solid var(--ln);
+}
+
+.c365-dashboard .tr.th {
+  border: 0;
+  color: var(--mu);
+  font-size: 12.5px;
+  padding-bottom: 8px;
+  font-weight: 500;
+}
+
+.c365-dashboard .tr:not(.th):hover {
+  background: #fafbfd;
+}
+
+.c365-dashboard .tr > :last-child {
+  text-align: right;
+}
+
+.c365-dashboard .st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 4px 11px;
+  border-radius: 99px;
+}
+
+.c365-dashboard .st::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.c365-dashboard .st.ok {
+  background: var(--okbg);
+  color: var(--ok);
+}
+
+.c365-dashboard .st.bad {
+  background: var(--badbg);
+  color: var(--bad);
+}
+
+.c365-dashboard .chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.c365-dashboard .chips button {
+  padding: 10px 18px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink2);
+  font-size: 13.5px;
+  transition: 0.2s;
+  font-weight: 500;
+}
+
+.c365-dashboard .chips button:hover {
+  background: #fff;
+}
+
+.c365-dashboard .chips button.on {
+  background: var(--ink);
+  color: #fff;
+}
+
+.c365-dashboard .search {
+  width: 100%;
+  max-width: 340px;
+  padding: 12px 18px;
+  border-radius: 99px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.8);
+  margin-bottom: 20px;
+}
+
+.c365-dashboard .in {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--ln);
+  background: #f6f7fa;
+}
+
+.c365-dashboard .in:focus {
+  border-color: var(--brand);
+  background: #fff;
+  outline: 0;
+}
+
+.c365-dashboard .f {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.c365-dashboard .f span {
+  color: var(--mu);
+  font-size: 12.5px;
+}
+
+.c365-dashboard .posg {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 22px;
+  align-items: start;
+}
+
+.c365-dashboard .items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 14px;
+}
+
+.c365-dashboard .it {
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 22px;
+  padding: 20px;
+  text-align: left;
+  display: grid;
+  gap: 22px;
+  transition: transform 0.15s, background 0.2s;
+  border: 1.5px solid transparent;
+  min-height: 132px;
+  align-content: space-between;
+}
+
+.c365-dashboard .it:hover {
+  transform: translateY(-3px);
+  background: #fff;
+  border-color: #ffd2b8;
+}
+
+.c365-dashboard .it[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.c365-dashboard .it b {
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.c365-dashboard .it div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 600 22px var(--head);
+  letter-spacing: -0.02em;
+}
+
+.c365-dashboard .it .pl {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bsoft);
+  color: var(--brand);
+  display: grid;
+  place-items: center;
+}
+
+.c365-dashboard .cart {
+  position: sticky;
+  top: 0;
+}
+
+.c365-dashboard .ln {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px dashed #d6d9e4;
+}
+
+.c365-dashboard .ln > span:first-child {
+  flex: 1;
+  font-weight: 500;
+}
+
+.c365-dashboard .q {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.c365-dashboard .q button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+}
+
+.c365-dashboard .q button:hover {
+  background: var(--bsoft);
+  color: var(--brand);
+}
+
+.c365-dashboard .tot {
+  display: flex;
+  justify-content: space-between;
+  font: 600 28px var(--head);
+  letter-spacing: -0.02em;
+  padding: 16px 0;
+  border-top: 2px solid var(--ink);
+  margin-top: 8px;
+}
+
+.c365-dashboard .seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--bg);
+  border-radius: 99px;
+  padding: 4px;
+  gap: 4px;
+  margin: 6px 0 14px;
+}
+
+.c365-dashboard .seg button {
+  padding: 9px;
+  border-radius: 99px;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.c365-dashboard .seg button.on {
+  background: #fff;
+  color: var(--brand);
+  font-weight: 500;
+  box-shadow: 0 1px 4px rgba(20, 21, 26, 0.12);
+}
+
+.c365-dashboard .empty {
+  text-align: center;
+  color: var(--mu);
+  padding: 30px 0;
+}
+
+.c365-dashboard .cg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.c365-dashboard .cc {
+  display: grid;
+  gap: 18px;
+}
+
+.c365-dashboard .cc .row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.c365-dashboard .cc small {
+  color: var(--mu);
+}
+
+.c365-dashboard .av {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font: 600 17px var(--head);
+  flex: none;
+}
+
+.c365-dashboard .cc .av {
+  background: var(--bsoft);
+  color: var(--brand);
+}
+
+.c365-dashboard .mini {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink2);
+  font-size: 12.5px;
+  padding-top: 14px;
+  border-top: 1px dashed #d6d9e4;
+}
+
+.c365-dashboard .mini b {
+  display: block;
+  color: var(--ink);
+  font: 600 17px var(--head);
+}
+
+.c365-dashboard .sw {
+  width: 44px;
+  height: 26px;
+  border-radius: 99px;
+  background: #d4d7e1;
+  position: relative;
+  transition: 0.2s;
+  flex: none;
+}
+
+.c365-dashboard .sw::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.c365-dashboard .sw.on {
+  background: var(--brand);
+}
+
+.c365-dashboard .sw.on::after {
+  left: 21px;
+}
+
+.c365-dashboard .opt {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px dashed #d6d9e4;
+}
+
+.c365-dashboard .opt small {
+  display: block;
+  color: var(--mu);
+  margin-top: 2px;
+}
+
+.c365-dashboard .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 220px;
+  margin-top: 22px;
+}
+
+.c365-dashboard .bars div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+  height: 100%;
+  font-size: 12px;
+  color: var(--mu);
+}
+
+.c365-dashboard .bars i {
+  width: 100%;
+  max-width: 48px;
+  border-radius: 99px;
+  background: #dfe2ee;
+  transition: background 0.2s;
+  display: block;
+  transform-origin: bottom;
+  animation: c365_grow 0.8s cubic-bezier(0.3, 0.1, 0.2, 1) backwards;
+}
+
+.c365-dashboard .bars div:hover i {
+  background: #ffc9a8;
+}
+
+.c365-dashboard .bars .now i {
+  background: var(--brand);
+}
+
+.c365-dashboard .slip {
+  display: grid;
+}
+
+.c365-dashboard .slip p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 12px 0;
+  border-top: 1px dashed #d6d9e4;
+  color: var(--ink2);
+}
+
+.c365-dashboard .slip p b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.c365-dashboard .slip p:first-child {
+  border: 0;
+}
+
+.c365-dashboard .two {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.c365-dashboard .toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 24px);
+  opacity: 0;
+  background: var(--ink);
+  color: #fff;
+  padding: 13px 22px;
+  border-radius: 99px;
+  font-size: 14px;
+  transition: 0.3s;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.c365-dashboard .toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@keyframes c365_out {
+  from { transform: scale(0.5); opacity: 0; }
+}
+
+@keyframes c365_beat {
+  50% { opacity: 0.6; }
+}
+
+@keyframes c365_fill {
+  from { stroke-dasharray: 0 100; }
+}
+
+@keyframes c365_drop {
+  from { opacity: 0; transform: translateY(-16px); max-height: 0; }
+}
+
+@keyframes c365_grow {
+  from { transform: scaleY(0); }
+}
+
+@media (max-width: 1300px) {
+  .c365-dashboard .hm {
+    grid-template-columns: minmax(340px, 440px) 1fr;
+    gap: 34px;
+  }
+  .c365-dashboard .tape {
+    grid-column: 1 / -1;
+  }
+  .c365-dashboard .g3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
+  .c365-dashboard .posg,
+  .c365-dashboard .two {
+    grid-template-columns: 1fr;
+  }
+  .c365-dashboard .cart {
+    position: static;
+  }
+}
+
+@media (max-width: 820px) {
+  .c365-dashboard .hm {
+    grid-template-columns: 1fr;
+  }
+  .c365-dashboard .main {
+    padding: 10px 18px 44px;
+  }
+  .c365-dashboard .bar {
+    padding: 14px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c365-dashboard * {
+    animation-duration: 0.01ms !important;
+    transition: none !important;
+  }
+}
+
+/* Day Closing Modal & Print Styles */
+.c365-dashboard .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 21, 26, 0.48);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.c365-dashboard .closing-modal-card {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 480px;
+  padding: 26px;
+  box-shadow: 0 24px 48px -12px rgba(20, 21, 26, 0.28);
+  position: relative;
+  animation: c365_drop 0.25s cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+
+.c365-dashboard .modal-close-btn {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  color: var(--ink2);
+  transition: 0.2s;
+}
+
+.c365-dashboard .modal-close-btn:hover {
+  background: var(--bsoft);
+  color: var(--brand);
+}
+
+.c365-dashboard .wa-btn {
+  background: #25d366 !important;
+  color: #fff !important;
+  box-shadow: 0 10px 20px -10px rgba(37, 211, 102, 0.7) !important;
+}
+
+.c365-dashboard .wa-btn:hover {
+  background: #1ebc57 !important;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-day-closing,
+  .printable-day-closing * {
+    visibility: visible;
+  }
+  .printable-day-closing {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: #fff;
+    color: #14151a;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* POS Card Badges, Corner Minus, and Special End Tiles */
+.c365-dashboard .it {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 20px;
+  padding: 16px 14px 14px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+  border: 1.5px solid rgba(226, 232, 240, 0.7);
+  min-height: 140px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.c365-dashboard .it:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  border-color: #ffd0b5;
+  box-shadow: 0 8px 24px rgba(255, 95, 0, 0.09);
+}
+
+/* Minus icon on OPPOSITE side (top-left) of the quantity box */
+.c365-dashboard .it-minus-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff1f0;
+  color: #e02d1b;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  border: 1px solid #ffd4d0;
+  transition: all 0.15s ease;
+  z-index: 4;
+}
+
+.c365-dashboard .it-minus-btn:hover {
+  background: #e02d1b;
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+/* Quantity badge on top-right */
+.c365-dashboard .it-qty-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 99px;
+  box-shadow: 0 4px 10px rgba(255, 95, 0, 0.35);
+  z-index: 4;
+  letter-spacing: -0.01em;
+}
+
+/* Card Content Header */
+.c365-dashboard .it-header {
+  padding-top: 4px;
+}
+
+.c365-dashboard .it-name {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.28;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.c365-dashboard .it-category-sub {
+  display: none !important;
+}
+
+/* Bottom Action Bar */
+.c365-dashboard .it-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f3f7;
+}
+
+.c365-dashboard .it-price {
+  font: 700 17px var(--head);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.c365-dashboard .it-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Beautifully aligned Half button */
+.c365-dashboard .it-half-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 9px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.c365-dashboard .it-half-btn:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+  transform: translateY(-1px);
+}
+
+/* Plus button */
+.c365-dashboard .it-plus-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(255, 95, 0, 0.3);
+}
+
+.c365-dashboard .it-plus-btn:hover {
+  background: #e65500;
+  transform: translateY(-1px) scale(1.05);
+}
+
+.c365-dashboard .it-plus-btn .ic {
+  width: 14px;
+  height: 14px;
+  fill: #fff;
+}
+
+.c365-dashboard .it.special-unidentified {
+  background: #fffaf6;
+  border: 1.5px dashed #ff9e66;
+}
+
+.c365-dashboard .it.special-unidentified:hover {
+  background: #fff;
+  border-color: var(--brand);
+}
+
+.c365-dashboard .it.special-add {
+  background: #fafbfd;
+  border: 1.5px dashed #cbd5e1;
+}
+
+.c365-dashboard .it.special-add:hover {
+  background: #fff;
+  border-color: var(--brand);
+}
+
+/* Menu Management Enhancements */
+.c365-dashboard .chips .add-cat-btn {
+  background: #fff7ed;
+  color: var(--brand);
+  border: 1.5px dashed #fdba74;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.c365-dashboard .chips .add-cat-btn:hover {
+  background: #ffedd5;
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.c365-dashboard .menu-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.c365-dashboard .menu-item-row:hover {
+  background: #ffffff;
+  border-color: #ffd8c2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.c365-dashboard .menu-item-row.selected {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.c365-dashboard .fav-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fafafb;
+  border: 1.5px solid #e5e7eb;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.c365-dashboard .fav-toggle-btn.active {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.c365-dashboard .fav-toggle-btn:hover {
+  transform: translateY(-1px);
+}
+
+.c365-dashboard .btn-danger {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.c365-dashboard .btn-danger:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Pro Shop Avatar Green Ring & Diamond Badge */
+.c365-dashboard .av.is-pro {
+  border: 2.5px solid #10b981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+  position: relative;
+}
+
+.c365-dashboard .diamond-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 17px;
+  height: 17px;
+  background: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  border: 1.5px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  line-height: 1;
+}
+
+/* 5 Payment Modes Segmented Bar */
+.c365-dashboard .seg-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  background: #f1f3f8;
+  border-radius: 14px;
+  padding: 5px;
+  margin-bottom: 12px;
+}
+
+.c365-dashboard .seg-modes button {
+  padding: 8px 6px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  text-align: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.c365-dashboard .seg-modes button:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.c365-dashboard .seg-modes button.on {
+  background: #fff;
+  color: var(--brand);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Animated Green Receipt Slip Popup */
+@keyframes receiptSlideDown {
+  0% {
+    transform: translateY(-40px) scale(0.92);
+    opacity: 0;
+  }
+  65% {
+    transform: translateY(5px) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes countdownShrink {
+  0% { width: 100%; }
+  100% { width: 0%; }
+}
+
+.c365-dashboard .success-slip-card {
+  background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 90px, #ffffff 100%);
+  border: 2px solid #10b981;
+  border-radius: 24px;
+  padding: 24px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 25px 60px -15px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.15);
+  animation: receiptSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.c365-dashboard .success-countdown-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 4.5px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  animation: countdownShrink 3s linear forwards;
+}
+
+.c365-dashboard .cust-search-item:hover {
+  background: #f8fafc;
+}
+
+/* Three-dot Vertical Bill Menu */
+.c365-dashboard .bill-dot-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--mu);
+  font-size: 17px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.c365-dashboard .bill-dot-btn:hover {
+  background: #f1f5f9;
+  color: var(--ink);
+}
+
+.c365-dashboard .bill-action-popup {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  min-width: 140px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.c365-dashboard .bill-action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.12s ease;
+}
+
+.c365-dashboard .bill-action-item:hover {
+  background: #f8fafc;
+  color: var(--brand);
+}
+
+.c365-dashboard .bill-action-item.delete-item {
+  color: #dc2626;
+}
+
+.c365-dashboard .bill-action-item.delete-item:hover {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* Custom Vector Icons (Edit & Delete) */
+.c365-dashboard .icon-edit,
+.c365-dashboard .icon-delete {
+  display: inline-block;
+  vertical-align: middle;
+  width: 14px;
+  height: 14px;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  flex-shrink: 0;
+}
+
+.c365-dashboard .icon-edit {
+  -webkit-mask-image: url('/icons/edit.png');
+  mask-image: url('/icons/edit.png');
+}
+
+.c365-dashboard .icon-delete {
+  -webkit-mask-image: url('/icons/delete.png');
+  mask-image: url('/icons/delete.png');
+}
+
+/* Bill Status Tags: Edited & Deleted */
+.c365-dashboard .st.edit {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.c365-dashboard .st.del {
+  background: #f1f5f9;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+/* Contact Section Slider (Customers vs Vendors) */
+.c365-dashboard .contact-slider-wrap {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 4px;
+  border-radius: 99px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  gap: 4px;
+}
+
+.c365-dashboard .contact-slider-btn {
+  padding: 9px 20px;
+  border-radius: 99px;
+  border: none;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.c365-dashboard .contact-slider-btn.active {
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Vendor card details */
+.c365-dashboard .vendor-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.c365-dashboard .vendor-card .av.vendor-av {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.c365-dashboard .supply-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+.c365-dashboard .vendor-info-box {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #475569;
+  border: 1px dashed #cbd5e1;
+}
+
+/* Compact Expense Boxes (3-4 per row) */
+.c365-dashboard .exp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.c365-dashboard .exp-box {
+  background: #ffffff;
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.c365-dashboard .exp-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+.c365-dashboard .exp-box .exp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.c365-dashboard .exp-box .exp-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.c365-dashboard .exp-box .exp-del-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.c365-dashboard .exp-box .exp-del-btn:hover {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.c365-dashboard .exp-box .exp-amt {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.c365-dashboard .exp-box .exp-desc {
+  font-size: 13px;
+  color: var(--ink2);
+  line-height: 1.35;
+  margin: 0;
+  word-break: break-word;
+}
+
+/* Report Styles */
+.c365-dashboard .month-nav-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--ink);
+}
+
+.c365-dashboard .month-nav-btn:hover {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+}
+
+.c365-dashboard .progress-track {
+  width: 100%;
+  height: 9px;
+  background: #f1f5f9;
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.c365-dashboard .progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.c365-dashboard .drilldown-year-card {
+  background: #ffffff;
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.c365-dashboard .drilldown-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  background: #ffffff;
+  transition: background 0.15s;
+}
+
+.c365-dashboard .drilldown-header:hover {
+  background: #f8fafc;
+}
+
+.c365-dashboard .drilldown-body {
+  border-top: 1px solid #e2e8f0;
+  background: #fafafa;
+  padding: 16px;
+}
+
+.c365-dashboard .date-bill-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.c365-dashboard .date-bill-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.c365-dashboard .date-bill-header:hover {
+  background: #f8fafc;
+}
+
+/* ==========================================================================
+   SETTINGS, SHOP PROFILE, HARDWARE & TABLE STYLES
+   ========================================================================== */
+.c365-dashboard .settings-slider-wrap {
+  display: flex;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 12px;
+  max-width: 440px;
+  margin-bottom: 22px;
+}
+
+.c365-dashboard .settings-slider-btn {
+  flex: 1;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.c365-dashboard .settings-slider-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.c365-dashboard .profile-header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid var(--ln);
+  margin-bottom: 16px;
+}
+
+.c365-dashboard .profile-avatar-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.c365-dashboard .profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid var(--brand);
+}
+
+.c365-dashboard .profile-camera-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 24px;
+  height: 24px;
+  background: var(--brand);
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.c365-dashboard .sub-box-card {
+  background: linear-gradient(135deg, #fff7ed 0%, #ffffff 100%);
+  border: 1.5px solid #fed7aa;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.c365-dashboard .progress-track {
+  height: 9px;
+  background: #fed7aa;
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.c365-dashboard .progress-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.c365-dashboard .perm-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.c365-dashboard .perm-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ln);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.c365-dashboard .no-printer-alert {
+  background: #fff1f2;
+  border: 1.5px dashed #f43f5e;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  margin-top: 12px;
+}
+
+.c365-dashboard .table-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.c365-dashboard .table-picker-card {
+  padding: 14px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.c365-dashboard .table-picker-card.is-selected {
+  border-color: var(--brand);
+  background: var(--bsoft);
+  box-shadow: 0 4px 12px rgba(255, 95, 0, 0.15);
+}
+
+.c365-dashboard .table-picker-card.is-occupied {
+  border-color: #f59e0b;
+}
+
+.c365-dashboard .switch-counter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f1f5f9;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  margin-bottom: 16px;
+}
+
+
+/* ==========================================================================
+   DARK THEME SYSTEM
+   ========================================================================== */
+.c365-dashboard.theme-dark {
+  color-scheme: dark;
+  --bg: #0c0e14;
+  --card: #161922;
+  --ink: #f8fafc;
+  --ink2: #cbd5e1;
+  --mu: #94a3b8;
+  --ln: #242938;
+  --bd: #2d3448;
+  --bsoft: #2d1e14;
+  --okbg: #064e3b;
+  --badbg: #451a1a;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* Base Rails & Bar */
+.c365-dashboard.theme-dark .rail {
+  background: #161922;
+  filter: drop-shadow(6px 0 16px rgba(0, 0, 0, 0.45));
+}
+
+.c365-dashboard.theme-dark .rail::after {
+  background: linear-gradient(135deg, #161922 25%, transparent 25%) 0 -8px,
+              linear-gradient(45deg, #161922 25%, transparent 25%) 0 -8px;
+  background-size: 16px 16px;
+}
+
+.c365-dashboard.theme-dark .bar {
+  background: #0c0e14;
+  border-bottom: 1px solid #1e2230;
+}
+
+.c365-dashboard.theme-dark .brand {
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .brand-logo-container {
+  border-bottom-color: #242938;
+}
+
+.c365-dashboard.theme-dark .keys button {
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .keys button:hover {
+  background: #1f2433;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .keys button.on {
+  background: #ff5f00;
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .keys button.on .ch {
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .keys button em {
+  background: #252b3d;
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .mode {
+  background: #1a1e2b;
+  border: 1px solid #272d3f;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .mode small {
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .mode b {
+  color: #f8fafc;
+}
+
+/* Card & Jagged Sawtooth Edge */
+.c365-dashboard.theme-dark .card {
+  background: #161922;
+  color: #f8fafc;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.4));
+}
+
+.c365-dashboard.theme-dark .card::after {
+  background: linear-gradient(135deg, #161922 25%, transparent 25%) -8px 0,
+              linear-gradient(225deg, #161922 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
+}
+
+.c365-dashboard.theme-dark .num,
+.c365-dashboard.theme-dark .h3 {
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .lbl {
+  color: #94a3b8;
+}
+
+/* Buttons, Tags, Inputs */
+.c365-dashboard.theme-dark .btn.g {
+  background: #1d212e;
+  color: #f8fafc;
+  border-color: #2b3245;
+}
+
+.c365-dashboard.theme-dark .btn.g:hover {
+  background: #262c3e;
+}
+
+.c365-dashboard.theme-dark .tag {
+  background: #1d212e;
+  color: #cbd5e1;
+  border: 1px solid #2b3245;
+}
+
+.c365-dashboard.theme-dark .search,
+.c365-dashboard.theme-dark .in,
+.c365-dashboard.theme-dark input,
+.c365-dashboard.theme-dark select,
+.c365-dashboard.theme-dark textarea {
+  background: #12141c !important;
+  color: #f8fafc !important;
+  border-color: #262c3d !important;
+}
+
+.c365-dashboard.theme-dark .search input {
+  background: transparent !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .search::placeholder,
+.c365-dashboard.theme-dark .in::placeholder,
+.c365-dashboard.theme-dark input::placeholder,
+.c365-dashboard.theme-dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.c365-dashboard.theme-dark .search:focus,
+.c365-dashboard.theme-dark .in:focus,
+.c365-dashboard.theme-dark input:focus,
+.c365-dashboard.theme-dark select:focus,
+.c365-dashboard.theme-dark textarea:focus {
+  border-color: #ff5f00 !important;
+  background: #161924 !important;
+}
+
+/* Category Filter Chips in Dark Mode */
+.c365-dashboard.theme-dark .chips button {
+  background: #1a1e2b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #282f42 !important;
+}
+
+.c365-dashboard.theme-dark .chips button:hover {
+  background: #222838 !important;
+  color: #ffffff !important;
+  border-color: #3b445d !important;
+}
+
+.c365-dashboard.theme-dark .chips button.on {
+  background: #ff5f00 !important;
+  color: #ffffff !important;
+  border-color: #ff5f00 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(255, 95, 0, 0.4) !important;
+}
+
+.c365-dashboard.theme-dark .chips .add-cat-btn {
+  background: #281810 !important;
+  color: #ff5f00 !important;
+  border: 1.5px dashed #f97316 !important;
+}
+
+.c365-dashboard.theme-dark .chips .add-cat-btn:hover {
+  background: #361f14 !important;
+  border-color: #ff5f00 !important;
+  color: #ff7824 !important;
+}
+
+/* Menu Items List in Dark Mode */
+.c365-dashboard.theme-dark .menu-item-row {
+  background: #171a24 !important;
+  border: 1.5px solid #232836 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row:hover {
+  background: #1e2332 !important;
+  border-color: #ff5f00 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row.selected {
+  background: #2b1d14 !important;
+  border-color: #f97316 !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row b {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row div {
+  color: #cbd5e1 !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row div b {
+  color: #ffffff !important;
+}
+
+/* Favorite Toggle & Danger Buttons in Dark Mode */
+.c365-dashboard.theme-dark .fav-toggle-btn {
+  background: #1a1e2b !important;
+  border: 1.5px solid #282f42 !important;
+  color: #cbd5e1 !important;
+}
+
+.c365-dashboard.theme-dark .fav-toggle-btn:hover {
+  background: #222838 !important;
+  color: #ffffff !important;
+  border-color: #3b445d !important;
+}
+
+.c365-dashboard.theme-dark .fav-toggle-btn.active {
+  background: #3b1818 !important;
+  border-color: #991b1b !important;
+  color: #f87171 !important;
+}
+
+.c365-dashboard.theme-dark .btn-danger {
+  background: #361519 !important;
+  color: #f87171 !important;
+  border: 1px solid #7f1d1d !important;
+}
+
+.c365-dashboard.theme-dark .btn-danger:hover {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+/* POS Payment Mode Segmented Bar in Dark Mode */
+.c365-dashboard.theme-dark .seg-modes {
+  background: #12141c !important;
+  border: 1px solid #242938 !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button {
+  color: #94a3b8 !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button:hover {
+  background: #1c202d !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button.on {
+  background: #252a38 !important;
+  color: #ff5f00 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Switches in Dark Mode */
+.c365-dashboard.theme-dark .sw {
+  background: #262c3d !important;
+}
+
+.c365-dashboard.theme-dark .sw.on {
+  background: #ff5f00 !important;
+}
+
+.c365-dashboard.theme-dark .sw::after {
+  background: #ffffff !important;
+}
+
+/* POS Menu & Items */
+.c365-dashboard.theme-dark .it {
+  background: #1a1e2b;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .it:hover {
+  background: #212637;
+  border-color: #ff5f00;
+}
+
+.c365-dashboard.theme-dark .it .n {
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .it .p {
+  color: #ff5f00;
+}
+
+.c365-dashboard.theme-dark .it-half-pill {
+  background: #262c3e;
+  border-color: #38415a;
+  color: #93c5fd;
+}
+
+.c365-dashboard.theme-dark .it .pl {
+  background: #252a38 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .it.special-add {
+  background: #221c16 !important;
+  border-color: #5c2912 !important;
+}
+
+.c365-dashboard.theme-dark .it.special-add:hover {
+  border-color: #ff5f00 !important;
+}
+
+.c365-dashboard.theme-dark .it.unidentified-btn {
+  background: #161c28 !important;
+  border-color: #1e3a8a !important;
+}
+
+.c365-dashboard.theme-dark .it.unidentified-btn:hover {
+  border-color: #3b82f6 !important;
+}
+
+.c365-dashboard.theme-dark .cart-list {
+  background: #12141c;
+}
+
+.c365-dashboard.theme-dark .slip {
+  background: #161922;
+  border-color: #242938;
+  color: #f8fafc;
+}
+
+/* Cart in Dark Mode */
+.c365-dashboard.theme-dark .cart {
+  background: #161922 !important;
+  border-color: #242938 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .cart .top b {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .cart .ln {
+  border-bottom-color: #242938 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .cart .ln span {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .cart .ln .cap {
+  color: #94a3b8 !important;
+}
+
+.c365-dashboard.theme-dark .cart .q button {
+  background: #252a38 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .cart .q button:hover {
+  background: #ff5f00 !important;
+  color: #ffffff !important;
+}
+
+.c365-dashboard.theme-dark .cart .tot {
+  border-top-color: #242938 !important;
+  color: #ffffff !important;
+}
+
+.c365-dashboard.theme-dark .cart .empty {
+  color: #94a3b8 !important;
+}
+
+/* Status Pills in Dark Mode */
+.c365-dashboard.theme-dark .st.paid {
+  background: #064e3b !important;
+  color: #34d399 !important;
+}
+
+.c365-dashboard.theme-dark .st.due {
+  background: #451a1a !important;
+  color: #f87171 !important;
+}
+
+.c365-dashboard.theme-dark .st.edit {
+  background: #452a0a !important;
+  color: #fbbf24 !important;
+}
+
+.c365-dashboard.theme-dark .st.del {
+  background: #1e2230 !important;
+  color: #94a3b8 !important;
+}
+
+/* Tables & Lists */
+.c365-dashboard.theme-dark .tb {
+  background: #161922;
+  border-color: #242938;
+}
+
+.c365-dashboard.theme-dark .tr {
+  border-color: #242938;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .tr:hover {
+  background: #1d212f;
+}
+
+.c365-dashboard.theme-dark .tr.th {
+  background: #12141c;
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .td {
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .panel {
+  background: #161922;
+  border-color: #242938;
+}
+
+/* Expenses & Contacts & Bill Action */
+.c365-dashboard.theme-dark .exp-box {
+  background: #1a1e2b;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .contact-slider-wrap {
+  background: #12141c;
+  border-color: #262b3a;
+}
+
+.c365-dashboard.theme-dark .contact-slider-btn {
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .contact-slider-btn.active {
+  background: #262c3e;
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .bill-action-popup {
+  background: #1c202d;
+  border: 1px solid #2d3448;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+.c365-dashboard.theme-dark .bill-action-item {
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .bill-action-item:hover {
+  background: #262c3e;
+}
+
+.c365-dashboard.theme-dark .bill-action-item.delete-item {
+  color: #f87171 !important;
+}
+
+.c365-dashboard.theme-dark .bill-action-item.delete-item:hover {
+  background: #361519 !important;
+  color: #ef4444 !important;
+}
+
+/* Reports Drilldown */
+.c365-dashboard.theme-dark .drilldown-card {
+  background: #161922;
+  border-color: #242938;
+}
+
+.c365-dashboard.theme-dark .drilldown-header {
+  background: #1a1e2b;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .drilldown-header:hover {
+  background: #212637;
+}
+
+.c365-dashboard.theme-dark .drilldown-body {
+  background: #12141c;
+  border-color: #242938;
+}
+
+.c365-dashboard.theme-dark .date-bill-box {
+  background: #1a1e2b;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .date-bill-header {
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .date-bill-header:hover {
+  background: #212637;
+}
+
+/* Day Closing Modal */
+.c365-dashboard.theme-dark .closing-modal-backdrop,
+.c365-dashboard.theme-dark .modal-backdrop {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+.c365-dashboard.theme-dark .closing-modal-card {
+  background: #161922 !important;
+  border: 1.5px solid #2d3448 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8) !important;
+}
+
+.c365-dashboard.theme-dark .closing-modal-card h2,
+.c365-dashboard.theme-dark .closing-modal-card h3,
+.c365-dashboard.theme-dark .closing-modal-card b {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .closing-modal-card p,
+.c365-dashboard.theme-dark .closing-modal-card small,
+.c365-dashboard.theme-dark .closing-modal-card span {
+  color: #cbd5e1 !important;
+}
+
+.c365-dashboard.theme-dark .closing-modal-card hr {
+  border-color: #242938 !important;
+}
+
+.c365-dashboard.theme-dark .modal-close-btn {
+  color: #94a3b8 !important;
+  background: #1e2230 !important;
+}
+
+.c365-dashboard.theme-dark .modal-close-btn:hover {
+  color: #ffffff !important;
+  background: #282f42 !important;
+}
+
+/* Global Inversion for inline styling helper */
+.c365-dashboard.theme-dark [style*="background: #ffffff"],
+.c365-dashboard.theme-dark [style*="background: rgb(255, 255, 255)"],
+.c365-dashboard.theme-dark [style*="background: #fff"],
+.c365-dashboard.theme-dark [style*="background-color: #ffffff"],
+.c365-dashboard.theme-dark [style*="background-color: rgb(255, 255, 255)"],
+.c365-dashboard.theme-dark [style*="background-color: #fff"] {
+  background: #161922 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark [style*="background: #f8fafc"],
+.c365-dashboard.theme-dark [style*="background: #f1f5f9"],
+.c365-dashboard.theme-dark [style*="background: #f9fafb"],
+.c365-dashboard.theme-dark [style*="background: #fafafa"],
+.c365-dashboard.theme-dark [style*="background: #f3f4f6"] {
+  background: #171a25 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark [style*="background: rgba(255, 255, 255"] {
+  background: #1a1e2b !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark [style*="color: #0f172a"],
+.c365-dashboard.theme-dark [style*="color: #1e293b"],
+.c365-dashboard.theme-dark [style*="color: #111827"],
+.c365-dashboard.theme-dark [style*="color: #14151a"] {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark [style*="color: #475569"],
+.c365-dashboard.theme-dark [style*="color: #64748b"] {
+  color: #cbd5e1 !important;
+}
+
+.c365-dashboard.theme-dark [style*="border: 1px solid #e2e8f0"],
+.c365-dashboard.theme-dark [style*="border: 1px solid #cbd5e1"],
+.c365-dashboard.theme-dark [style*="border: 1px solid #e5e7eb"],
+.c365-dashboard.theme-dark [style*="border-top: 1px solid #e2e8f0"],
+.c365-dashboard.theme-dark [style*="border-bottom: 1px solid #e2e8f0"] {
+  border-color: #282f42 !important;
+}
+
+.c365-dashboard.theme-dark .settings-slider-wrap {
+  background: #12141c;
+}
+
+.c365-dashboard.theme-dark .settings-slider-btn {
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .settings-slider-btn.active {
+  background: #252a38;
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .profile-header-card {
+  background: #1a1e2b;
+  border-color: #282f42;
+}
+
+.c365-dashboard.theme-dark .profile-camera-badge {
+  border-color: #1a1e2b;
+}
+
+.c365-dashboard.theme-dark .sub-box-card {
+  background: linear-gradient(135deg, #2b1d14 0%, #1a1e2b 100%);
+  border-color: #7c2d12;
+}
+
+.c365-dashboard.theme-dark .progress-track {
+  background: #3b281c;
+}
+
+.c365-dashboard.theme-dark .perm-toggle-item {
+  background: #1a1e2b;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .no-printer-alert {
+  background: #361519;
+  border-color: #e11d48;
+  color: #fda4af;
+}
+
+.c365-dashboard.theme-dark .table-picker-card {
+  background: #1a1e2b;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+.c365-dashboard.theme-dark .table-picker-card.is-selected {
+  border-color: var(--brand);
+  background: #2f1d12;
+}
+
+.c365-dashboard.theme-dark .switch-counter-bar {
+  background: #13151c;
+  border-color: #282f42;
+  color: #f8fafc;
+}
+
+/* ==========================================================================
+   EXHAUSTIVE DARK MODE BUTTON & LIST CLARITY REINFORCEMENTS
+   ========================================================================== */
+
+/* Dark Mode Action Buttons */
+.c365-dashboard.theme-dark .btn.k {
+  background: #252b3d !important;
+  color: #f8fafc !important;
+  border: 1px solid #3b445d !important;
+}
+
+.c365-dashboard.theme-dark .btn.k:hover {
+  background: #2f374d !important;
+  color: #ffffff !important;
+}
+
+.c365-dashboard.theme-dark .btn.p,
+.c365-dashboard.theme-dark .btn.b {
+  background: #ff5f00 !important;
+  color: #ffffff !important;
+  border: 1px solid #ff5f00 !important;
+}
+
+.c365-dashboard.theme-dark .btn.p:hover,
+.c365-dashboard.theme-dark .btn.b:hover {
+  background: #ff7824 !important;
+  color: #ffffff !important;
+}
+
+.c365-dashboard.theme-dark .btn.g {
+  background: #1e2230 !important;
+  color: #f8fafc !important;
+  border: 1px solid #2d3448 !important;
+}
+
+.c365-dashboard.theme-dark .btn.g:hover {
+  background: #282f42 !important;
+  color: #ffffff !important;
+  border-color: #3d465e !important;
+}
+
+.c365-dashboard.theme-dark .lnk {
+  color: #ff7824 !important;
+}
+
+/* Menu Item Rows in Dark Mode */
+.c365-dashboard.theme-dark .menu-item-row {
+  background: #171a24 !important;
+  border: 1.5px solid #232836 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row:hover {
+  background: #1e2332 !important;
+  border-color: #ff5f00 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row.selected {
+  background: #2b1d14 !important;
+  border-color: #f97316 !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row b {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row div {
+  color: #cbd5e1 !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row div b {
+  color: #ffffff !important;
+}
+
+.c365-dashboard.theme-dark .menu-item-row span {
+  color: #cbd5e1 !important;
+}
+
+/* Category Filter Chips */
+.c365-dashboard.theme-dark .chips button {
+  background: #1a1e2b !important;
+  color: #cbd5e1 !important;
+  border: 1.5px solid #282f42 !important;
+}
+
+.c365-dashboard.theme-dark .chips button:hover {
+  background: #222838 !important;
+  color: #ffffff !important;
+  border-color: #3b445d !important;
+}
+
+.c365-dashboard.theme-dark .chips button.on {
+  background: #ff5f00 !important;
+  color: #ffffff !important;
+  border-color: #ff5f00 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(255, 95, 0, 0.4) !important;
+}
+
+.c365-dashboard.theme-dark .chips .add-cat-btn {
+  background: #281810 !important;
+  color: #ff5f00 !important;
+  border: 1.5px dashed #f97316 !important;
+}
+
+.c365-dashboard.theme-dark .chips .add-cat-btn:hover {
+  background: #361f14 !important;
+  border-color: #ff5f00 !important;
+  color: #ff7824 !important;
+}
+
+/* Contact Section Slider (Customers vs Vendors) */
+.c365-dashboard.theme-dark .contact-slider-wrap {
+  background: #12141c !important;
+  border: 1.5px solid #262b3a !important;
+}
+
+.c365-dashboard.theme-dark .contact-slider-btn {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+.c365-dashboard.theme-dark .contact-slider-btn:hover {
+  color: #f8fafc !important;
+  background: #1a1e2b !important;
+}
+
+.c365-dashboard.theme-dark .contact-slider-btn.active {
+  background: #ff5f00 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(255, 95, 0, 0.4) !important;
+}
+
+/* Customer & Vendor Cards */
+.c365-dashboard.theme-dark .card.cc,
+.c365-dashboard.theme-dark .vendor-card {
+  background: #161922 !important;
+  border: 1px solid #262c3e !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .card.cc b,
+.c365-dashboard.theme-dark .vendor-card b {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .card.cc small,
+.c365-dashboard.theme-dark .vendor-card small {
+  color: #94a3b8 !important;
+}
+
+.c365-dashboard.theme-dark .vendor-info-box {
+  background: #12141c !important;
+  border: 1px solid #262c3e !important;
+  color: #cbd5e1 !important;
+}
+
+/* Reports Multi-Year and Date Breakdown Cards */
+.c365-dashboard.theme-dark .drilldown-year-card {
+  background: #161922 !important;
+  border: 1px solid #262c3e !important;
+}
+
+.c365-dashboard.theme-dark .drilldown-header {
+  background: #1a1e2b !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .drilldown-header:hover {
+  background: #212637 !important;
+}
+
+.c365-dashboard.theme-dark .drilldown-body {
+  background: #12141c !important;
+  border-color: #242938 !important;
+}
+
+.c365-dashboard.theme-dark .date-bill-box {
+  background: #161922 !important;
+  border: 1px solid #262c3e !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .date-bill-header {
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .date-bill-header:hover {
+  background: #1f2434 !important;
+}
+
+/* Modals */
+.c365-dashboard.theme-dark .modal-card,
+.c365-dashboard.theme-dark .closing-modal-card {
+  background: #161922 !important;
+  border: 1.5px solid #2d3448 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8) !important;
+}
+
+.c365-dashboard.theme-dark .modal-close-btn {
+  background: #252a38 !important;
+  color: #94a3b8 !important;
+  border: 1px solid #333a4f !important;
+}
+
+.c365-dashboard.theme-dark .modal-close-btn:hover {
+  background: #333a4f !important;
+  color: #ffffff !important;
+}
+
+/* Table Ledger */
+.c365-dashboard.theme-dark .tb {
+  background: #161922 !important;
+  border-color: #242938 !important;
+}
+
+.c365-dashboard.theme-dark .tr {
+  border-color: #242938 !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .tr:hover {
+  background: #1d212f !important;
+}
+
+.c365-dashboard.theme-dark .tr.th {
+  background: #12141c !important;
+  color: #94a3b8 !important;
+}
+
+.c365-dashboard.theme-dark .td {
+  color: #f8fafc !important;
+}
+
+/* Status Badges */
+.c365-dashboard.theme-dark .st.paid,
+.c365-dashboard.theme-dark .st.ok {
+  background: #064e3b !important;
+  color: #34d399 !important;
+}
+
+.c365-dashboard.theme-dark .st.due,
+.c365-dashboard.theme-dark .st.bad {
+  background: #451a1a !important;
+  color: #f87171 !important;
+}
+
+.c365-dashboard.theme-dark .st.edit {
+  background: #3b2b14 !important;
+  color: #fbbf24 !important;
+}
+
+.c365-dashboard.theme-dark .st.del {
+  background: #252836 !important;
+  color: #94a3b8 !important;
+}
+
+/* POS Payment Modes Segmented Bar */
+.c365-dashboard.theme-dark .seg-modes {
+  background: #12141c !important;
+  border: 1px solid #262b3a !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button:hover {
+  background: #1c202d !important;
+  color: #f8fafc !important;
+}
+
+.c365-dashboard.theme-dark .seg-modes button.on {
+  background: #252a38 !important;
+  color: #ff5f00 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+  font-weight: 700 !important;
+}
+
+
+
+
+
