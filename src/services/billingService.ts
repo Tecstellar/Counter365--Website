@@ -37,33 +37,61 @@ export const billingService = {
     return local;
   },
 
-  async getNextBillNumber(shopId: string): Promise<string> {
-    const countKey = `${BILL_COUNT_KEY_PREFIX}${shopId}`;
+  async getNextBillNumber(shopId: string, customPrefix?: string): Promise<string> {
+    const monthName = new Date().toLocaleDateString('en-US', { month: 'long', timeZone: 'Asia/Kolkata' });
+    let prefix = customPrefix?.trim().toUpperCase();
+
+    // 1. If prefix not provided, fetch from shops table or local cache
+    if (!prefix) {
+      try {
+        const { data: shopRow } = await (supabase.from('shops') as any)
+          .select('invoice_prefix, name')
+          .eq('id', shopId)
+          .maybeSingle();
+
+        if (shopRow?.invoice_prefix) {
+          prefix = shopRow.invoice_prefix.trim().toUpperCase();
+        } else if (shopRow?.name) {
+          prefix = shopRow.name.trim().slice(0, 3).toUpperCase();
+        }
+      } catch {}
+    }
+    if (!prefix) prefix = 'TTS';
+
+    const countKey = `${BILL_COUNT_KEY_PREFIX}${shopId}_${monthName.toLowerCase()}`;
     let current = await storage.getObject<number>(countKey, 0);
 
-    // Try fetching max bill_number count from Supabase
+    // Try fetching max bill_number for this month from Supabase
     try {
       const { data } = await (supabase.from('bills') as any)
         .select('bill_number')
         .eq('shop_id', shopId)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(30);
 
       if (data && data.length > 0) {
-        const lastNoStr = data[0].bill_number;
-        const match = lastNoStr.match(/\d+$/);
-        if (match) {
-          const parsed = parseInt(match[0], 10);
-          if (!isNaN(parsed) && parsed > current) {
-            current = parsed;
+        for (const row of data) {
+          const bNum = row.bill_number;
+          if (!bNum) continue;
+          // Match if this bill belongs to the current month e.g. TTS-November-001 or DTS-November-005
+          if (bNum.toLowerCase().includes(monthName.toLowerCase())) {
+            const match = bNum.match(/(\d+)$/);
+            if (match) {
+              const parsed = parseInt(match[1], 10);
+              if (!isNaN(parsed) && parsed > current) {
+                current = parsed;
+              }
+            }
           }
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn('getNextBillNumber Supabase check notice:', err);
+    }
 
     const next = current + 1;
     await storage.setObject(countKey, next);
-    return `#${next.toString().padStart(4, '0')}`;
+    return `${prefix}-${monthName}-${next.toString().padStart(3, '0')}`;
   },
 
   async getBills(shopId: string): Promise<Bill[]> {
@@ -132,8 +160,15 @@ export const billingService = {
           createdByRole: b.created_by_role,
           isEdited: b.is_edited ?? false,
           editedAt: b.edited_at,
+          editedByName: b.edited_by_name || null,
           isCancelled: b.is_cancelled ?? false,
           cancellationReason: b.cancellation_reason,
+          deletedByName: b.cancellation_reason && b.cancellation_reason.startsWith('Deleted by ')
+            ? b.cancellation_reason.replace('Deleted by ', '').split(' (')[0]
+            : null,
+          deletedByRole: b.cancellation_reason && b.cancellation_reason.includes('(')
+            ? b.cancellation_reason.split('(')[1]?.replace(')', '')
+            : null,
         }));
 
         await storage.setObject(key, remoteBills);
@@ -148,6 +183,7 @@ export const billingService = {
 
   async createBill(params: {
     shopId: string;
+    invoicePrefix?: string;
     cart: CartItem[];
     paymentMode: PaymentMethod;
     gstEnabled: boolean;
@@ -177,7 +213,7 @@ export const billingService = {
     }
 
     const nextCount = totalCreatedCount + 1;
-    const billNumber = await this.getNextBillNumber(params.shopId);
+    const billNumber = await this.getNextBillNumber(params.shopId, params.invoicePrefix);
 
     // Update total count
     const TOTAL_KEY = `@counterpro/total_bills_created_${params.shopId}`;
@@ -483,11 +519,17 @@ export const billingService = {
     const bills = await storage.getObject<Bill[]>(key, []);
     const match = bills.find(b => b.id === billId);
 
+    const deleterName = user?.name || 'Owner';
+    const deleterRole = (user?.role as UserRole) || 'Owner';
+    const deletedTime = new Date().toISOString();
+
     if (match) {
       match.status = 'deleted';
-      match.deletedByName = user?.name || 'Owner';
-      match.deletedByRole = (user?.role as UserRole) || 'Owner';
-      match.deletedAt = new Date().toISOString();
+      match.isDeleted = true;
+      match.deletedByName = deleterName;
+      match.deletedByRole = deleterRole;
+      match.deletedAt = deletedTime;
+      match.cancellationReason = `Deleted by ${deleterName} (${deleterRole})`;
       await storage.setObject(key, bills);
     }
 
@@ -495,18 +537,39 @@ export const billingService = {
       await (supabase.from('bills') as any)
         .update({
           status: 'deleted',
-          updated_at: new Date().toISOString(),
+          is_cancelled: true,
+          cancellation_reason: `Deleted by ${deleterName} (${deleterRole})`,
+          updated_at: deletedTime,
         })
         .eq('id', billId);
+
+      // Record in audit_logs table (Master Table 18)
+      await (supabase.from('audit_logs') as any).insert({
+        id: generateUUID(),
+        shop_id: shopId,
+        action: 'BILL_DELETED',
+        entity_type: 'bills',
+        entity_id: billId,
+        old_values: match ? { billNumber: match.billNumber, totalAmount: match.totalAmount } : null,
+        new_values: { status: 'deleted', deletedBy: deleterName, role: deleterRole },
+        created_at: deletedTime,
+      });
     } catch (err) {
       console.warn('deleteBill remote update error:', err);
     }
   },
 
-  async updateBill(shopId: string, updatedBill: Bill): Promise<void> {
+  async updateBill(shopId: string, updatedBill: Bill, user?: { name?: string; role?: string }): Promise<void> {
     const key = this.getStorageKey(shopId);
     const bills = await storage.getObject<Bill[]>(key, []);
     const idx = bills.findIndex(b => b.id === updatedBill.id);
+
+    const editorName = user?.name || updatedBill.editedByName || 'Staff';
+    const editedTime = new Date().toISOString();
+
+    updatedBill.isEdited = true;
+    updatedBill.editedAt = editedTime;
+    updatedBill.editedByName = editorName;
 
     if (idx >= 0) {
       bills[idx] = updatedBill;
@@ -523,7 +586,10 @@ export const billingService = {
           paid_amount: updatedBill.paidAmount,
           pending_amount: updatedBill.pendingAmount,
           status: updatedBill.status,
-          updated_at: new Date().toISOString(),
+          is_edited: true,
+          edited_at: editedTime,
+          edited_by_name: editorName,
+          updated_at: editedTime,
         })
         .eq('id', updatedBill.id);
     } catch (err) {

@@ -356,8 +356,26 @@ Generated via Counter365 Cloud POS`;
     }
 
     loadAll();
+
+    // Real-time synchronization for menu items & categories with mobile app
+    const unsubscribeMenu = menuService.subscribeToMenuChanges(shop.id, async () => {
+      try {
+        const [freshItems, freshCats] = await Promise.all([
+          menuService.getMenuItems(shop.id, (shop.shopType as any) || 'Tea Shop'),
+          menuService.getCategories(shop.id, (shop.shopType as any) || 'Tea Shop'),
+        ]);
+        if (isMounted) {
+          setMenuItems(freshItems);
+          setCategoriesList(freshCats);
+        }
+      } catch (err) {
+        console.warn('Realtime menu update error:', err);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribeMenu();
     };
   }, [shop?.id]);
 
@@ -395,20 +413,58 @@ Generated via Counter365 Cloud POS`;
   // Format rupee
   const fm = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
   const esc = (s: string) => String(s || '');
+
+  // Format bill number preserving mobile prefix (e.g. TTS-November-001 or #0001)
   const bn = (numStr: string | number) => {
-    const clean = String(numStr).replace('#', '');
-    return '#' + clean.padStart(3, '0');
+    if (!numStr) return '#001';
+    const s = String(numStr).trim();
+    return s;
   };
 
-  // Financial Totals Calculation (Excludes deleted bills)
+  // Helper for today's date in Indian Standard Time (Asia/Kolkata, YYYY-MM-DD)
+  const getTodayISTDateStr = () => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const isTodayIST = (dateStr?: string | null, targetToday = getTodayISTDateStr()) => {
+    if (!dateStr) return false;
+    try {
+      const d = new Date(dateStr);
+      const formatted = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(d);
+      return formatted === targetToday;
+    } catch {
+      return String(dateStr).startsWith(targetToday);
+    }
+  };
+
+  // Financial Totals Calculation (Strictly for TODAY'S trading, excludes deleted bills)
   const totals = useMemo(() => {
     let cash = 0;
     let upi = 0;
     let due = 0;
-    const nonDeleted = bills.filter((b) => b.status !== 'deleted');
-    let count = nonDeleted.length;
+    const todayDateStr = getTodayISTDateStr();
 
-    nonDeleted.forEach((b) => {
+    // Filter strictly to non-deleted bills created TODAY in IST
+    const todayBills = bills.filter(
+      (b) => b.status !== 'deleted' && isTodayIST(b.createdAt, todayDateStr)
+    );
+    const count = todayBills.length;
+
+    todayBills.forEach((b) => {
       const amt = Number(b.totalAmount) || 0;
       const pending = Number(b.pendingAmount) || 0;
       const paid = Number(b.paidAmount) || 0;
@@ -420,12 +476,19 @@ Generated via Counter365 Cloud POS`;
         }
       } else if (b.paymentMode === 'GPay') {
         upi += amt;
+      } else if (b.paymentMode === 'Cash + GPay') {
+        cash += Number(b.cashAmount) || 0;
+        upi += Number(b.gpayAmount) || Math.max(0, amt - (Number(b.cashAmount) || 0));
       } else {
         cash += amt;
       }
     });
 
-    const expTotal = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    // Filter strictly to expenses recorded TODAY in IST
+    const todayExpenses = expenses.filter(
+      (e) => (e.expenseDate && e.expenseDate === todayDateStr) || isTodayIST(e.createdAt, todayDateStr)
+    );
+    const expTotal = todayExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const sales = cash + upi;
     const net = sales - expTotal;
 
@@ -440,13 +503,13 @@ Generated via Counter365 Cloud POS`;
     };
   }, [bills, expenses]);
 
-  // Hourly Breakdown (14 buckets: 8 AM to 9 PM)
+  // Hourly Breakdown (14 buckets: 8 AM to 9 PM strictly for TODAY)
   const hourlyData = useMemo(() => {
     const buckets = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayDateStr = getTodayISTDateStr();
 
     bills.forEach((b) => {
-      if (b.createdAt && b.createdAt.startsWith(todayStr)) {
+      if (b.status !== 'deleted' && isTodayIST(b.createdAt, todayDateStr)) {
         const d = new Date(b.createdAt);
         const hour = d.getHours();
         const bucketIdx = hour - 8;
@@ -456,17 +519,8 @@ Generated via Counter365 Cloud POS`;
       }
     });
 
-    // If no sales recorded today yet, use a natural baseline scaled to total sales
-    const sum = buckets.reduce((a, b) => a + b, 0);
-    if (sum === 0 && totals.sales > 0) {
-      const weights = [800, 1250, 2100, 2900, 3600, 4200];
-      const weightSum = weights.reduce((a, b) => a + b, 0);
-      weights.forEach((w, i) => {
-        buckets[i] = Math.round((w / weightSum) * totals.sales);
-      });
-    }
     return buckets;
-  }, [bills, totals.sales]);
+  }, [bills]);
 
   const hl = (i: number) => {
     const h = 8 + i;
@@ -709,6 +763,7 @@ Generated via Counter365 Cloud POS`;
 
       const res = await billingService.createBill({
         shopId: shop.id,
+        invoicePrefix: shop.invoicePrefix,
         cart: cartItemsForService,
         paymentMode: payMode,
         gstEnabled: !!shop.gstEnabled,
@@ -1138,19 +1193,50 @@ Generated via Counter365 Cloud POS`;
     }
   };
 
+  // Bill Actions: Share via WhatsApp
+  const handleShareBillWhatsApp = (b: Bill) => {
+    setOpenBillMenuId(null);
+    const billLines = (b.items || [])
+      .map((it) => `• ${it.itemName}${it.isHalf ? ' (½)' : ''} x${it.quantity} - ₹${it.lineTotal}`)
+      .join('\n');
+    const cleanPhone = b.customerPhone ? b.customerPhone.replace(/\D/g, '').slice(-10) : '';
+    const dateFormatted = b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'Today';
+    const text = `🧾 *${shop?.name || 'Counter 365'}*\n*Bill No:* ${bn(b.billNumber)}\n*Date:* ${dateFormatted}\n--------------------\n${billLines || 'Bill Details'}\n--------------------\n*Total Amount:* ₹${b.totalAmount}\n*Payment Mode:* ${b.paymentMode}${b.pendingAmount > 0 ? `\n*Khata Balance:* ₹${b.pendingAmount}` : ''}\n\nThank you for visiting! 🙏`;
+    const url = cleanPhone
+      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
+  // Bill Actions: Print Bill
+  const handlePrintSingleBill = (b: Bill) => {
+    setOpenBillMenuId(null);
+    setSavedBillSuccess(b);
+    showToast(`Opening receipt for ${bn(b.billNumber)}`);
+  };
+
   // Bill Actions: Delete Bill
   const handleDeleteBill = async (billId: string) => {
     if (!shop?.id) return;
     try {
+      const deleterName = profile?.fullName || 'Owner';
+      const deleterRole = currentRole;
       await billingService.deleteBill(billId, shop.id, {
-        name: profile?.fullName || 'Owner',
-        role: currentRole,
+        name: deleterName,
+        role: deleterRole,
       });
       setBills((prev) =>
-        prev.map((b) => (b.id === billId ? { ...b, status: 'deleted' as any } : b))
+        prev.map((b) => (b.id === billId ? {
+          ...b,
+          status: 'deleted' as any,
+          isDeleted: true,
+          deletedByName: deleterName,
+          deletedByRole: deleterRole,
+          deletedAt: new Date().toISOString(),
+        } : b))
       );
       setOpenBillMenuId(null);
-      showToast('Bill marked as deleted.');
+      showToast(`Bill deleted by ${deleterName} (${deleterRole}).`);
     } catch (err) {
       console.error(err);
       showToast('Failed to delete bill.');
@@ -1173,6 +1259,7 @@ Generated via Counter365 Cloud POS`;
     const paid = Number(editBillPaidAmount) || 0;
     const total = editingBill.totalAmount || 0;
     const pending = Math.max(0, total - paid);
+    const editorName = profile?.fullName || 'Owner';
     const updated: Bill = {
       ...editingBill,
       customerName: editBillCustName.trim() || 'Customer',
@@ -1181,13 +1268,19 @@ Generated via Counter365 Cloud POS`;
       paidAmount: paid,
       pendingAmount: pending,
       status: 'edited' as any,
+      isEdited: true,
+      editedAt: new Date().toISOString(),
+      editedByName: editorName,
     };
 
     try {
-      await billingService.updateBill(shop.id, updated);
+      await billingService.updateBill(shop.id, updated, {
+        name: editorName,
+        role: currentRole,
+      });
       setBills((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setEditingBill(null);
-      showToast('Bill updated successfully.');
+      showToast(`Bill updated by ${editorName}.`);
     } catch (err) {
       console.error(err);
       showToast('Failed to update bill.');
@@ -2919,12 +3012,12 @@ Generated via Counter365 POS Cloud`;
                     <div className="tb">
                       <div
                         className="tr th"
-                        style={{ gridTemplateColumns: '70px 1.5fr 90px 100px 90px 130px' } as any}
+                        style={{ gridTemplateColumns: '150px 1.4fr 90px 110px 90px 140px' } as any}
                       >
                         <span>Bill</span>
                         <span>Customer</span>
                         <span>Mode</span>
-                        <span>Time</span>
+                        <span>Date & Time</span>
                         <span>Amount</span>
                         <span>Status & Action</span>
                       </div>
@@ -2936,21 +3029,25 @@ Generated via Counter365 POS Cloud`;
                         const timeStr = b.createdAt
                           ? new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })
                           : '12:00 PM';
+                        const dateFormatted = b.createdAt
+                          ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                          : 'Today';
+
                         return (
                           <div
                             key={b.id}
                             className="tr"
                             style={{
-                              gridTemplateColumns: '70px 1.5fr 90px 100px 90px 130px',
+                              gridTemplateColumns: '150px 1.4fr 90px 110px 90px 140px',
                               opacity: isDeleted ? 0.6 : 1,
                               background: isDeleted ? 'rgba(241, 245, 249, 0.5)' : undefined,
                             } as any}
                           >
-                            <span style={{ textDecoration: isDeleted ? 'line-through' : 'none', fontWeight: 600 }}>
+                            <span style={{ textDecoration: isDeleted ? 'line-through' : 'none', fontWeight: 600, fontSize: '13px' }}>
                               {bn(b.billNumber)}
                             </span>
                             <span>
-                              <span style={{ textDecoration: isDeleted ? 'line-through' : 'none' }}>
+                              <span style={{ textDecoration: isDeleted ? 'line-through' : 'none', fontWeight: 500 }}>
                                 {esc(b.customerName || 'Walk-in guest')}
                               </span>
                               {b.customerPhone && (
@@ -2959,16 +3056,43 @@ Generated via Counter365 POS Cloud`;
                                   <small className="cap">{b.customerPhone}</small>
                                 </>
                               )}
+
+                              {/* Audit trail metadata */}
+                              {isDeleted ? (
+                                <small style={{ display: 'block', fontSize: '11px', color: '#dc2626', fontWeight: 600, marginTop: '2px' }}>
+                                  🗑️ Deleted by {b.deletedByName || 'Owner'}{b.deletedByRole ? ` (${b.deletedByRole})` : ''}
+                                </small>
+                              ) : isEdited ? (
+                                <small style={{ display: 'block', fontSize: '11px', color: '#d97706', fontWeight: 600, marginTop: '2px' }}>
+                                  ✏️ Edited by {b.editedByName || 'Staff'}
+                                </small>
+                              ) : b.createdByName ? (
+                                <small style={{ display: 'block', fontSize: '11px', color: 'var(--mu)', marginTop: '2px' }}>
+                                  Created by {b.createdByName}{b.createdByRole && b.createdByRole !== 'Biller' ? ` (${b.createdByRole})` : ''}
+                                </small>
+                              ) : null}
                             </span>
-                            <span>{isDue ? 'Khata' : b.paymentMode}</span>
-                            <span className="cap">{timeStr}</span>
-                            <span style={{ fontWeight: 600 }}>{fm(b.totalAmount)}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 500 }}>{isDue ? 'Khata' : b.paymentMode}</span>
+                            <span>
+                              <span style={{ fontSize: '12.5px', fontWeight: 500, display: 'block' }}>
+                                {dateFormatted}
+                              </span>
+                              <small className="cap" style={{ fontSize: '11px' }}>{timeStr}</small>
+                            </span>
+                            <span style={{ fontWeight: 600 }}>
+                              {fm(b.totalAmount)}
+                              {isDue && (b.pendingAmount || 0) > 0 && (
+                                <small style={{ display: 'block', color: '#dc2626', fontSize: '11px', fontWeight: 500 }}>
+                                  Due {fm(b.pendingAmount)}
+                                </small>
+                              )}
+                            </span>
                             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
                               <span className={`st ${isDeleted ? 'del' : isEdited ? 'edit' : isDue ? 'bad' : 'ok'}`}>
                                 {isDeleted ? 'Deleted' : isEdited ? 'Edited' : isDue ? 'Due' : 'Paid'}
                               </span>
 
-                              {/* 3-dot Vertical Menu */}
+                              {/* 3-dot Vertical Menu (WhatsApp, Print, Edit, Delete) */}
                               <div style={{ position: 'relative' }}>
                                 <button
                                   type="button"
@@ -2987,21 +3111,48 @@ Generated via Counter365 POS Cloud`;
                                     className="bill-action-popup"
                                     onClick={(e) => e.stopPropagation()}
                                   >
+                                    {/* 1. WhatsApp */}
+                                    <button
+                                      type="button"
+                                      className="bill-action-item"
+                                      onClick={() => handleShareBillWhatsApp(b)}
+                                      title="Share invoice on WhatsApp"
+                                    >
+                                      <span style={{ fontSize: '14px', lineHeight: 1 }}>💬</span>
+                                      <span>WhatsApp</span>
+                                    </button>
+
+                                    {/* 2. Print */}
+                                    <button
+                                      type="button"
+                                      className="bill-action-item"
+                                      onClick={() => handlePrintSingleBill(b)}
+                                      title="Print receipt"
+                                    >
+                                      <Printer className="w-3.5 h-3.5 text-[#10b981]" />
+                                      <span>Print receipt</span>
+                                    </button>
+
+                                    {/* 3. Edit */}
                                     {!isDeleted && (
                                       <button
                                         type="button"
                                         className="bill-action-item"
                                         onClick={() => handleStartEditBill(b)}
+                                        title="Edit bill details"
                                       >
                                         <span className="icon-edit" style={{ width: '14px', height: '14px' }} />
                                         <span>Edit bill</span>
                                       </button>
                                     )}
+
+                                    {/* 4. Delete */}
                                     {!isDeleted ? (
                                       <button
                                         type="button"
                                         className="bill-action-item delete-item"
                                         onClick={() => handleDeleteBill(b.id)}
+                                        title="Delete bill"
                                       >
                                         <span className="icon-delete" style={{ width: '14px', height: '14px', color: '#dc2626' }} />
                                         <span>Delete bill</span>
