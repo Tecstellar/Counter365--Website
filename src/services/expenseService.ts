@@ -119,4 +119,28 @@ export const expenseService = {
       console.warn('deleteExpense remote error:', err);
     }
   },
+
+  /**
+   * Real-time listener for expenses changes for instant multi-device sync
+   */
+  subscribeToExpenseChanges(shopId: string, onUpdate: () => void): () => void {
+    if (!shopId) return () => {};
+    const channelName = `expenses_live_${shopId}_${generateUUID().slice(0, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'expenses' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
 };

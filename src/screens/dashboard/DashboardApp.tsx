@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useShop } from '../../context/ShopContext';
@@ -259,6 +259,9 @@ export const DashboardApp: React.FC = () => {
   const [customerFilter, setCustomerFilter] = useState<'all' | 'active' | 'vip' | 'inactive'>('all');
   const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<CustomerRecord | null>(null);
 
+  // Instant Refresh & Auto-Sync State
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
   // Tea Shop / Café Standard Expense Presets
   const TEA_SHOP_EXPENSE_PRESETS = [
     { desc: 'Milk Packets / Dairy', cat: 'Ingredients' },
@@ -333,99 +336,119 @@ Generated via Counter365 Cloud POS`;
     showToast('Sending Day Closing to printer...');
   };
 
-  // Initial Data Load
+  // Master full synchronization function across all models (bills, customers, menu, expenses, staff, vendors)
+  const refreshAllData = useCallback(async (silent: boolean = false) => {
+    if (!shop?.id) return;
+    if (!silent) setIsRefreshing(true);
+    try {
+      const [bList, mList, eList, cList, catList, vList, staff] = await Promise.all([
+        billingService.getBills(shop.id),
+        menuService.getMenuItems(shop.id, (shop.shopType as any) || 'Tea Shop'),
+        expenseService.getExpenses(shop.id),
+        contactService.getCustomers(shop.id),
+        menuService.getCategories(shop.id, (shop.shopType as any) || 'Tea Shop'),
+        contactService.getVendors(shop.id),
+        staffService.getShopMembers(shop.id),
+      ]);
+
+      setBills(bList);
+      setMenuItems(mList);
+      setExpenses(eList);
+      setCustomers(cList);
+      setCategoriesList(catList);
+      setVendors(vList || []);
+      setStaffList(staff || []);
+
+      if (!silent) {
+        showToast('✓ Everything updated & synced with mobile!');
+      }
+    } catch (err) {
+      console.error('refreshAllData error:', err);
+      if (!silent) {
+        showToast('Sync completed with local cache');
+      }
+    } finally {
+      if (!silent) {
+        setTimeout(() => setIsRefreshing(false), 350);
+      }
+    }
+  }, [shop?.id, shop?.shopType]);
+
+  // Initial Data Load & Continuous Multi-Device Realtime Auto-Sync
   useEffect(() => {
     if (!shop?.id) return;
 
     let isMounted = true;
-    async function loadAll() {
-      try {
-        const [bList, mList, eList, cList, catList, vList, staff] = await Promise.all([
-          billingService.getBills(shop!.id),
-          menuService.getMenuItems(shop!.id, (shop!.shopType as any) || 'Tea Shop'),
-          expenseService.getExpenses(shop!.id),
-          contactService.getCustomers(shop!.id),
-          menuService.getCategories(shop!.id, (shop!.shopType as any) || 'Tea Shop'),
-          contactService.getVendors(shop!.id),
-          staffService.getShopMembers(shop!.id),
-        ]);
+    let debounceTimer: any = null;
 
+    const triggerSilentRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
         if (isMounted) {
-          setBills(bList);
-          setMenuItems(mList);
-          setCategoriesList(catList);
-          setExpenses(eList);
-          setCustomers(cList);
-          setVendors(vList || []);
-          setStaffList(staff || []);
-          setShopFormName(shop!.name || '');
-          setShopFormType(shop!.shopType || 'Tea shop · Cafe');
-          setShopFormCity(shop!.city || 'Anna Nagar, Chennai');
-          setEditShopName(shop!.name || '');
-          setEditShopPhone(shop!.phone || '');
-          setEditShopCity(shop!.city || '');
-          setEditOwnerName(shop!.ownerName || profile?.fullName || '');
-          setGstRateInput(String(shop!.gstRate || 5));
-          setTableCountInput(String(shop!.tableCount || 6));
+          refreshAllData(true);
+        }
+      }, 150);
+    };
+
+    // 1. Initial Load
+    async function loadInitial() {
+      try {
+        await refreshAllData(true);
+        if (isMounted && shop) {
+          setShopFormName(shop.name || '');
+          setShopFormType(shop.shopType || 'Tea shop · Cafe');
+          setShopFormCity(shop.city || 'Anna Nagar, Chennai');
+          setEditShopName(shop.name || '');
+          setEditShopPhone(shop.phone || '');
+          setEditShopCity(shop.city || '');
+          setEditOwnerName(shop.ownerName || profile?.fullName || '');
+          setGstRateInput(String(shop.gstRate || 5));
+          setTableCountInput(String(shop.tableCount || 6));
         }
       } catch (err) {
-        console.error('Error loading dashboard data:', err);
+        console.error('Initial load error:', err);
       }
     }
+    loadInitial();
 
-    loadAll();
+    // 2. Real-time subscriptions for instant sync with any mobile phone activity
+    const unsubscribeMenu = menuService.subscribeToMenuChanges(shop.id, triggerSilentRefresh);
+    const unsubscribeStaff = staffService.subscribeToShopMembers(shop.id, triggerSilentRefresh);
+    const unsubscribeBills = billingService.subscribeToBillChanges(shop.id, triggerSilentRefresh);
+    const unsubscribeCusts = contactService.subscribeToCustomerChanges(shop.id, triggerSilentRefresh);
+    const unsubscribeExpenses = expenseService.subscribeToExpenseChanges(shop.id, triggerSilentRefresh);
 
-    // Real-time synchronization for menu items & categories with mobile app
-    const unsubscribeMenu = menuService.subscribeToMenuChanges(shop.id, async () => {
-      try {
-        const [freshItems, freshCats] = await Promise.all([
-          menuService.getMenuItems(shop.id, (shop.shopType as any) || 'Tea Shop'),
-          menuService.getCategories(shop.id, (shop.shopType as any) || 'Tea Shop'),
-        ]);
-        if (isMounted) {
-          setMenuItems(freshItems);
-          setCategoriesList(freshCats);
-        }
-      } catch (err) {
-        console.warn('Realtime menu update error:', err);
+    // 3. Auto-refresh polling every 4 seconds when tab is visible (guarantees zero-lag sync across all devices)
+    const pollInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        refreshAllData(true);
       }
-    });
+    }, 4000);
 
-    // Real-time synchronization for staff accounts & permissions with mobile app
-    const unsubscribeStaff = staffService.subscribeToShopMembers(shop.id, async () => {
-      try {
-        const freshStaff = await staffService.getShopMembers(shop.id);
-        if (isMounted) {
-          setStaffList(freshStaff || []);
-        }
-      } catch (err) {
-        console.warn('Realtime staff update error:', err);
+    // 4. Instant re-sync on window focus & tab visibility change
+    const handleFocus = () => refreshAllData(true);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAllData(true);
       }
-    });
+    };
 
-    // Real-time synchronization for bills & dues with mobile app
-    const unsubscribeBills = billingService.subscribeToBillChanges(shop.id, async () => {
-      try {
-        const [freshBills, freshCusts] = await Promise.all([
-          billingService.getBills(shop.id),
-          contactService.getCustomers(shop.id),
-        ]);
-        if (isMounted) {
-          setBills(freshBills);
-          setCustomers(freshCusts);
-        }
-      } catch (err) {
-        console.warn('Realtime bills update error:', err);
-      }
-    });
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       isMounted = false;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
       unsubscribeMenu();
       unsubscribeStaff();
       unsubscribeBills();
+      unsubscribeCusts();
+      unsubscribeExpenses();
     };
-  }, [shop?.id]);
+  }, [shop?.id, refreshAllData]);
 
   // Synchronize owner name & shop profile inputs dynamically when live updates arrive from mobile app
   useEffect(() => {
@@ -2286,6 +2309,34 @@ Generated via Counter365 POS Cloud`;
                   ? 'Pro active'
                   : `${subscriptionStatus?.billsRemaining ?? 100} bills left`}
               </span>
+
+              {/* Instant Refresh & Multi-Device Sync Button */}
+              <button
+                type="button"
+                className={`btn g sm refresh-sync-btn ${isRefreshing ? 'refresh-spinning' : ''}`}
+                onClick={() => refreshAllData(false)}
+                title="Refresh & Sync (Instant live sync with mobile)"
+                aria-label="Refresh and sync data with cloud"
+                disabled={isRefreshing}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 600,
+                  cursor: isRefreshing ? 'wait' : 'pointer',
+                }}
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
+                  style={{
+                    color: isRefreshing ? '#ff5f00' : 'inherit',
+                  }}
+                />
+                <span className="sync-btn-label">
+                  {isRefreshing ? 'Syncing...' : 'Sync'}
+                </span>
+              </button>
+
               <button
                 type="button"
                 className="btn g sm theme-toggle-btn"

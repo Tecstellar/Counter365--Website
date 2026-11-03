@@ -3477,6 +3477,61 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* Top Header Refresh & Auto-Sync Styles */
+@keyframes c365_spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.c365-dashboard .refresh-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--bg2, #f3f4f6);
+  border: 1px solid var(--bdr, #e5e7eb);
+  color: var(--ink, #1f2937);
+  user-select: none;
+}
+
+.c365-dashboard .refresh-sync-btn:hover:not(:disabled) {
+  background: var(--bsoft, #fff5eb);
+  border-color: #ff5f00;
+  color: #ff5f00;
+  transform: translateY(-1px);
+}
+
+.c365-dashboard.theme-dark .refresh-sync-btn {
+  background: #1f2430;
+  border-color: #2e3648;
+  color: #f1f5f9;
+}
+
+.c365-dashboard.theme-dark .refresh-sync-btn:hover:not(:disabled) {
+  background: rgba(255, 95, 0, 0.12);
+  border-color: #ff5f00;
+  color: #ff8c42;
+}
+
+.c365-dashboard .refresh-sync-btn.refresh-spinning {
+  pointer-events: none;
+  opacity: 0.85;
+  border-color: #ff5f00;
+}
+
+.c365-dashboard .animate-spin {
+  animation: c365_spin 0.75s linear infinite !important;
+}
+
+
 
 
 

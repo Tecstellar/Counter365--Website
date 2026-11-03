@@ -158,19 +158,27 @@ export const billingService = {
           items: itemsMap[b.id] || [],
           createdAt: b.created_at,
           completedAt: b.completed_at || b.created_at,
+          settledAt: b.settled_at || null,
+          initialPaidAmount: b.initial_paid_amount != null ? Number(b.initial_paid_amount) : undefined,
+          collections: Array.isArray(b.collections) ? b.collections : [],
           createdByName: b.created_by_name,
           createdByRole: b.created_by_role,
+          createdById: b.created_by_id || null,
           isEdited: b.is_edited ?? false,
           editedAt: b.edited_at,
           editedByName: b.edited_by_name || null,
+          editedByRole: b.edited_by_role || null,
+          editedById: b.edited_by_id || null,
+          isDeleted: b.is_deleted ?? false,
+          deletedAt: b.deleted_at || null,
           isCancelled: b.is_cancelled ?? false,
           cancellationReason: b.cancellation_reason,
-          deletedByName: b.cancellation_reason && b.cancellation_reason.startsWith('Deleted by ')
+          deletedByName: b.deleted_by_name || (b.cancellation_reason && b.cancellation_reason.startsWith('Deleted by ')
             ? b.cancellation_reason.replace('Deleted by ', '').split(' (')[0]
-            : null,
-          deletedByRole: b.cancellation_reason && b.cancellation_reason.includes('(')
+            : null),
+          deletedByRole: b.deleted_by_role || (b.cancellation_reason && b.cancellation_reason.includes('(')
             ? b.cancellation_reason.split('(')[1]?.replace(')', '')
-            : null,
+            : null),
         }));
 
         await storage.setObject(key, remoteBills);
@@ -988,20 +996,43 @@ export const billingService = {
   },
 
   /**
-   * Real-time listener for bills & pending payments changes
+   * Real-time listener for bills, items, pending payments & payments changes
    */
   subscribeToBillChanges(shopId: string, onUpdate: () => void): () => void {
-    const channelName = `bills_changes_${shopId}_${generateUUID().slice(0, 8)}`;
+    if (!shopId) return () => {};
+    const channelName = `bills_live_${shopId}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'bills', filter: `shop_id=eq.${shopId}` },
-        () => onUpdate()
+        { event: '*', schema: 'public', table: 'bills' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'pending_payments', filter: `shop_id=eq.${shopId}` },
+        { event: '*', schema: 'public', table: 'pending_payments' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'payments' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bill_items' },
         () => onUpdate()
       )
       .subscribe();

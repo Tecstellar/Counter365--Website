@@ -138,4 +138,37 @@ export const contactService = {
 
     return vendor;
   },
+
+  /**
+   * Real-time listener for customer & vendor changes for instant multi-device sync
+   */
+  subscribeToCustomerChanges(shopId: string, onUpdate: () => void): () => void {
+    if (!shopId) return () => {};
+    const channelName = `contacts_live_${shopId}_${generateUUID().slice(0, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'customers' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vendors' },
+        (payload: any) => {
+          if (!payload.new?.shop_id || payload.new.shop_id === shopId || payload.old?.shop_id === shopId) {
+            onUpdate();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
 };
