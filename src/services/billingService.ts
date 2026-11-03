@@ -784,86 +784,157 @@ export const billingService = {
     }
   },
 
-  async collectPendingDue(billId: string, shopId: string, paidAmount: number, paymentMode: PaymentMethod, user?: { name?: string; role?: string }): Promise<void> {
+  async collectPendingDue(billId: string, shopId: string, paidAmount: number, paymentMode: PaymentMethod, user?: { id?: string; name?: string; role?: string }): Promise<void> {
     const key = this.getStorageKey(shopId);
-    const bills = await storage.getObject<Bill[]>(key, []);
-    const match = bills.find(b => b.id === billId);
+    let bills = await storage.getObject<Bill[]>(key, []);
+    let match = bills.find(b => b.id === billId);
+
+    // If not in local cache, fetch authoritative bill directly from Supabase
+    if (!match) {
+      try {
+        const { data: dbBill } = await (supabase.from('bills') as any)
+          .select('*')
+          .eq('id', billId)
+          .maybeSingle();
+        if (dbBill) {
+          match = {
+            id: dbBill.id,
+            shopId: dbBill.shop_id,
+            billNumber: dbBill.bill_number,
+            customerId: dbBill.customer_id,
+            customerName: dbBill.customer_name,
+            customerPhone: dbBill.customer_phone,
+            tableNumber: dbBill.table_number,
+            status: dbBill.status,
+            subtotal: Number(dbBill.subtotal) || 0,
+            discountAmount: Number(dbBill.discount_amount) || 0,
+            gstRate: Number(dbBill.gst_rate) || 0,
+            gstAmount: Number(dbBill.gst_amount) || 0,
+            totalAmount: Number(dbBill.total_amount) || 0,
+            paidAmount: Number(dbBill.paid_amount) || 0,
+            pendingAmount: Number(dbBill.pending_amount) || 0,
+            paymentMode: dbBill.payment_mode || 'Pending',
+            collections: dbBill.collections || [],
+            createdAt: dbBill.created_at,
+            completedAt: dbBill.completed_at,
+            settledAt: dbBill.settled_at,
+            items: [],
+          };
+          bills.push(match);
+        }
+      } catch (fErr) {
+        console.warn('collectPendingDue fetch bill error:', fErr);
+      }
+    }
 
     if (!match) return;
 
     const newPaid = (match.paidAmount || 0) + paidAmount;
     const newPending = Math.max(0, match.totalAmount - newPaid);
+    const nowIso = new Date().toISOString();
+    const isFullySettled = newPending === 0;
 
     match.paidAmount = newPaid;
     match.pendingAmount = newPending;
-    if (newPending === 0) {
+    if (isFullySettled) {
       match.paymentMode = paymentMode;
-      match.settledAt = new Date().toISOString();
+      match.settledAt = nowIso;
+      match.completedAt = nowIso;
     } else {
       match.paymentMode = 'Partial Pay';
     }
 
-    match.collections = match.collections || [];
-    match.collections.push({
+    const collectionRecord = {
       id: generateUUID(),
       amount: paidAmount,
+      paidAt: nowIso,
       paymentMode,
-      paidAt: new Date().toISOString(),
+      receivedById: user?.id || null,
       receivedByName: user?.name || 'Owner',
-      receivedById: null,
-    });
+    };
+
+    match.collections = match.collections || [];
+    match.collections.push(collectionRecord);
 
     await storage.setObject(key, bills);
 
     try {
+      // 1. Update bills table in Supabase (including collections, settled_at, completed_at)
       await (supabase.from('bills') as any)
         .update({
           paid_amount: newPaid,
           pending_amount: newPending,
           payment_mode: match.paymentMode,
-          updated_at: new Date().toISOString(),
+          collections: match.collections,
+          settled_at: isFullySettled ? nowIso : (match.settledAt || null),
+          completed_at: isFullySettled ? nowIso : (match.completedAt || nowIso),
+          updated_at: nowIso,
         })
         .eq('id', billId);
 
-      // Record in payments table
+      // 2. Insert into payments table (with payment_method and recorded_at for mobile app revenue calculation)
       await (supabase.from('payments') as any).insert({
-        id: generateUUID(),
+        id: collectionRecord.id,
         shop_id: shopId,
         bill_id: billId,
         payment_mode: paymentMode,
+        payment_method: paymentMode,
         amount: paidAmount,
         status: 'successful',
-        paid_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
+        recorded_at: nowIso,
+        paid_at: nowIso,
+        created_at: nowIso,
       });
 
-      // Update pending_payments table
+      // 3. Update pending_payments table (reducing amount_due so mobile app pending section updates)
       const { data: penRows } = await (supabase.from('pending_payments') as any)
         .select('*')
-        .eq('bill_id', billId)
-        .limit(1);
+        .eq('bill_id', billId);
 
       if (penRows && penRows.length > 0) {
-        const pen = penRows[0];
-        const updatedPaid = (Number(pen.amount_paid) || 0) + paidAmount;
-        const status = newPending === 0 ? 'settled' : 'partial';
-        await (supabase.from('pending_payments') as any)
-          .update({
-            amount_paid: updatedPaid,
-            status,
-            settled_at: newPending === 0 ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', pen.id);
+        for (const pen of penRows) {
+          const updatedPaid = (Number(pen.amount_paid) || 0) + paidAmount;
+          await (supabase.from('pending_payments') as any)
+            .update({
+              amount_due: newPending,
+              amount_paid: updatedPaid,
+              status: isFullySettled ? 'settled' : 'partial',
+              is_settled: isFullySettled,
+              is_cleared: isFullySettled,
+              cleared_at: isFullySettled ? nowIso : null,
+              settled_at: isFullySettled ? nowIso : null,
+              updated_at: nowIso,
+            })
+            .eq('id', pen.id);
+        }
+      } else if (newPending > 0) {
+        // Fallback: create pending_payments entry if none existed
+        await (supabase.from('pending_payments') as any).insert({
+          id: generateUUID(),
+          shop_id: shopId,
+          bill_id: billId,
+          customer_id: match.customerId || null,
+          customer_name: match.customerName || 'Valued Customer',
+          customer_phone: match.customerPhone || null,
+          amount_due: newPending,
+          amount_paid: newPaid,
+          status: isFullySettled ? 'settled' : 'partial',
+          is_settled: isFullySettled,
+          is_cleared: isFullySettled,
+          settled_at: isFullySettled ? nowIso : null,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
       }
 
-      // Update customer pending balance in local storage & supabase
-      if (match.customerPhone || match.customerName) {
+      // 4. Update customer pending balance in local storage & Supabase
+      if (match.customerPhone || match.customerName || match.customerId) {
         const custKey = `@counterpro/customers_${shopId}`;
         const customers = await storage.getObject<CustomerRecord[]>(custKey, []);
         const cleanPhone = match.customerPhone?.slice(-10);
 
         const cust = customers.find(c =>
+          (match.customerId && c.id === match.customerId) ||
           (cleanPhone && c.phone && c.phone.slice(-10) === cleanPhone) ||
           (match.customerName && c.name.toLowerCase() === match.customerName.toLowerCase())
         );
@@ -874,17 +945,69 @@ export const billingService = {
             cust.statusTag = 'Regular';
           }
           await storage.setObject(custKey, customers);
-          await (supabase.from('customers') as any)
-            .update({
-              pending_balance: cust.pendingBalance,
-              status_tag: cust.statusTag,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', cust.id);
+        }
+
+        // Direct update to Supabase customers table by ID or phone
+        if (match.customerId) {
+          const { data: dbCust } = await (supabase.from('customers') as any)
+            .select('pending_balance')
+            .eq('id', match.customerId)
+            .maybeSingle();
+          if (dbCust) {
+            const nextBal = Math.max(0, (Number(dbCust.pending_balance) || 0) - paidAmount);
+            await (supabase.from('customers') as any)
+              .update({
+                pending_balance: nextBal,
+                status_tag: nextBal > 0 ? 'Pending' : 'Regular',
+                updated_at: nowIso,
+              })
+              .eq('id', match.customerId);
+          }
+        } else if (cleanPhone) {
+          const { data: dbCusts } = await (supabase.from('customers') as any)
+            .select('id, pending_balance')
+            .eq('shop_id', shopId)
+            .ilike('phone', `%${cleanPhone}`);
+          if (dbCusts && dbCusts.length > 0) {
+            for (const c of dbCusts) {
+              const nextBal = Math.max(0, (Number(c.pending_balance) || 0) - paidAmount);
+              await (supabase.from('customers') as any)
+                .update({
+                  pending_balance: nextBal,
+                  status_tag: nextBal > 0 ? 'Pending' : 'Regular',
+                  updated_at: nowIso,
+                })
+                .eq('id', c.id);
+            }
+          }
         }
       }
     } catch (err) {
       console.warn('collectPendingDue remote error:', err);
     }
+  },
+
+  /**
+   * Real-time listener for bills & pending payments changes
+   */
+  subscribeToBillChanges(shopId: string, onUpdate: () => void): () => void {
+    const channelName = `bills_changes_${shopId}_${generateUUID().slice(0, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bills', filter: `shop_id=eq.${shopId}` },
+        () => onUpdate()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pending_payments', filter: `shop_id=eq.${shopId}` },
+        () => onUpdate()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   },
 };

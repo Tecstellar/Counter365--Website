@@ -401,10 +401,27 @@ Generated via Counter365 Cloud POS`;
       }
     });
 
+    // Real-time synchronization for bills & dues with mobile app
+    const unsubscribeBills = billingService.subscribeToBillChanges(shop.id, async () => {
+      try {
+        const [freshBills, freshCusts] = await Promise.all([
+          billingService.getBills(shop.id),
+          contactService.getCustomers(shop.id),
+        ]);
+        if (isMounted) {
+          setBills(freshBills);
+          setCustomers(freshCusts);
+        }
+      } catch (err) {
+        console.warn('Realtime bills update error:', err);
+      }
+    });
+
     return () => {
       isMounted = false;
       unsubscribeMenu();
       unsubscribeStaff();
+      unsubscribeBills();
     };
   }, [shop?.id]);
 
@@ -1002,7 +1019,8 @@ Generated via Counter365 Cloud POS`;
         const applyToThisBill = Math.min(remainingToApply, curPending);
 
         await billingService.collectPendingDue(b.id, shop.id, applyToThisBill, collectPayMethod, {
-          name: profile.fullName || 'Owner',
+          id: profile?.id,
+          name: profile?.fullName || 'Owner',
           role: currentRole,
         });
 
@@ -1030,6 +1048,16 @@ Generated via Counter365 Cloud POS`;
             pendingAmount: match.newPending,
             paymentMode: match.isSettled ? collectPayMethod : 'Partial Pay',
             settledAt: match.isSettled ? new Date().toISOString() : b.settledAt,
+            collections: [
+              ...(b.collections || []),
+              {
+                id: generateUUID(),
+                amount: match.paidDelta,
+                paidAt: new Date().toISOString(),
+                paymentMode: collectPayMethod,
+                receivedByName: profile?.fullName || 'Owner',
+              },
+            ],
           };
         })
       );
