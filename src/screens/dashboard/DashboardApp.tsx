@@ -1088,21 +1088,35 @@ Generated via Counter365 Cloud POS`;
       );
 
       const remainingCustomerDue = Math.max(0, collectingCustomerDue.totalDue - payingAmt);
-      if (collectingCustomerDue.customerPhone) {
-        const custMatch = customers.find(c => c.phone === collectingCustomerDue.customerPhone);
-        if (custMatch) {
-          await contactService.saveCustomer({
-            ...custMatch,
-            pendingBalance: remainingCustomerDue,
-            statusTag: remainingCustomerDue > 0 ? 'Pending' : 'Regular',
-          });
-          setCustomers(prev => prev.map(c => c.id === custMatch.id ? { ...c, pendingBalance: remainingCustomerDue } : c));
-        }
+      const cleanPhone = collectingCustomerDue.customerPhone ? collectingCustomerDue.customerPhone.replace(/[^0-9]/g, '').slice(-10) : '';
+
+      const custMatches = customers.filter(c =>
+        (cleanPhone && c.phone && c.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone) ||
+        (c.name && c.name.trim().toLowerCase() === collectingCustomerDue.customerName.trim().toLowerCase())
+      );
+
+      for (const cm of custMatches) {
+        await contactService.saveCustomer({
+          ...cm,
+          pendingBalance: remainingCustomerDue,
+          statusTag: remainingCustomerDue > 0 ? 'Pending' : (cm.isVip ? 'MVP' : 'Regular'),
+        });
       }
+
+      setCustomers(prev =>
+        prev.map(c => {
+          const isMatch = (cleanPhone && c.phone && c.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone) ||
+                          (c.name && c.name.trim().toLowerCase() === collectingCustomerDue.customerName.trim().toLowerCase());
+          return isMatch ? { ...c, pendingBalance: remainingCustomerDue, statusTag: remainingCustomerDue > 0 ? 'Pending' : (c.isVip ? 'MVP' : 'Regular') } : c;
+        })
+      );
 
       showToast(`Collected ${fm(payingAmt)} from ${collectingCustomerDue.customerName}. Remaining due: ${fm(remainingCustomerDue)}.`);
       setCollectingCustomerDue(null);
       setCollectPayingNow('');
+
+      // Immediately trigger fresh sync across all collections
+      await refreshAllData(true);
     } catch (err) {
       console.error(err);
       showToast('Error recording due payment.');

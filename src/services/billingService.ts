@@ -906,6 +906,8 @@ export const billingService = {
             .update({
               amount_due: newPending,
               amount_paid: updatedPaid,
+              cleared_amount: updatedPaid,
+              amount: isFullySettled ? 0 : newPending,
               status: isFullySettled ? 'settled' : 'partial',
               is_settled: isFullySettled,
               is_cleared: isFullySettled,
@@ -926,6 +928,8 @@ export const billingService = {
           customer_phone: match.customerPhone || null,
           amount_due: newPending,
           amount_paid: newPaid,
+          cleared_amount: newPaid,
+          amount: newPending,
           status: isFullySettled ? 'settled' : 'partial',
           is_settled: isFullySettled,
           is_cleared: isFullySettled,
@@ -939,26 +943,40 @@ export const billingService = {
       if (match.customerPhone || match.customerName || match.customerId) {
         const custKey = `@counterpro/customers_${shopId}`;
         const customers = await storage.getObject<CustomerRecord[]>(custKey, []);
-        const cleanPhone = match.customerPhone?.slice(-10);
+        const cleanPhone = match.customerPhone ? match.customerPhone.replace(/[^0-9]/g, '').slice(-10) : '';
 
-        const cust = customers.find(c =>
-          (match.customerId && c.id === match.customerId) ||
-          (cleanPhone && c.phone && c.phone.slice(-10) === cleanPhone) ||
-          (match.customerName && c.name.toLowerCase() === match.customerName.toLowerCase())
-        );
-
-        if (cust) {
-          cust.pendingBalance = Math.max(0, (cust.pendingBalance || 0) - paidAmount);
-          if (cust.pendingBalance === 0) {
-            cust.statusTag = 'Regular';
+        for (const cust of customers) {
+          const isMatch = (match.customerId && cust.id === match.customerId) ||
+                          (cleanPhone && cust.phone && cust.phone.replace(/[^0-9]/g, '').slice(-10) === cleanPhone) ||
+                          (match.customerName && cust.name.toLowerCase().trim() === match.customerName.toLowerCase().trim());
+          if (isMatch) {
+            cust.pendingBalance = Math.max(0, (cust.pendingBalance || 0) - paidAmount);
+            cust.statusTag = cust.pendingBalance > 0 ? 'Pending' : (cust.isVip ? 'MVP' : 'Regular');
           }
-          await storage.setObject(custKey, customers);
         }
+        await storage.setObject(custKey, customers);
 
-        // Direct update to Supabase customers table by ID or phone
-        if (match.customerId) {
+        // Direct update to Supabase customers table by ID, phone, or name
+        if (cleanPhone && cleanPhone.length === 10) {
+          const { data: dbCusts } = await (supabase.from('customers') as any)
+            .select('id, pending_balance, is_vip')
+            .eq('shop_id', shopId)
+            .ilike('phone', `%${cleanPhone}%`);
+          if (dbCusts && dbCusts.length > 0) {
+            for (const c of dbCusts) {
+              const nextBal = Math.max(0, (Number(c.pending_balance) || 0) - paidAmount);
+              await (supabase.from('customers') as any)
+                .update({
+                  pending_balance: nextBal,
+                  status_tag: nextBal > 0 ? 'Pending' : (c.is_vip ? 'MVP' : 'Regular'),
+                  updated_at: nowIso,
+                })
+                .eq('id', c.id);
+            }
+          }
+        } else if (match.customerId) {
           const { data: dbCust } = await (supabase.from('customers') as any)
-            .select('pending_balance')
+            .select('pending_balance, is_vip')
             .eq('id', match.customerId)
             .maybeSingle();
           if (dbCust) {
@@ -966,23 +984,23 @@ export const billingService = {
             await (supabase.from('customers') as any)
               .update({
                 pending_balance: nextBal,
-                status_tag: nextBal > 0 ? 'Pending' : 'Regular',
+                status_tag: nextBal > 0 ? 'Pending' : (dbCust.is_vip ? 'MVP' : 'Regular'),
                 updated_at: nowIso,
               })
               .eq('id', match.customerId);
           }
-        } else if (cleanPhone) {
+        } else if (match.customerName) {
           const { data: dbCusts } = await (supabase.from('customers') as any)
-            .select('id, pending_balance')
+            .select('id, pending_balance, is_vip')
             .eq('shop_id', shopId)
-            .ilike('phone', `%${cleanPhone}`);
+            .eq('name', match.customerName);
           if (dbCusts && dbCusts.length > 0) {
             for (const c of dbCusts) {
               const nextBal = Math.max(0, (Number(c.pending_balance) || 0) - paidAmount);
               await (supabase.from('customers') as any)
                 .update({
                   pending_balance: nextBal,
-                  status_tag: nextBal > 0 ? 'Pending' : 'Regular',
+                  status_tag: nextBal > 0 ? 'Pending' : (c.is_vip ? 'MVP' : 'Regular'),
                   updated_at: nowIso,
                 })
                 .eq('id', c.id);
