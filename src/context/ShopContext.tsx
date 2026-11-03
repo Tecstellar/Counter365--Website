@@ -13,6 +13,7 @@ interface ShopContextType {
   subscriptionStatus: SubscriptionStatusInfo | null;
   isLoading: boolean;
   updateShop: (updated: Partial<Shop>) => Promise<Shop>;
+  uploadLogo: (file: File | Blob) => Promise<string>;
   registerNewShop: (params: {
     name: string;
     shopType: ShopType;
@@ -44,6 +45,7 @@ const ShopContext = createContext<ShopContextType>({
   subscriptionStatus: null,
   isLoading: true,
   updateShop: async () => ({} as any),
+  uploadLogo: async () => '',
   registerNewShop: async () => ({} as any),
   refreshSubscription: async () => {},
   clearShop: async () => {},
@@ -73,11 +75,26 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    let unsubscribeRealtime: (() => void) | null = null;
+
     async function loadShop() {
       try {
         const storedShop = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
         if (storedShop) {
           setShop(storedShop);
+
+          // 1. Fetch fresh authoritative shop data from Supabase to sync with mobile
+          shopService.getShop(storedShop.id).then((remoteShop) => {
+            if (remoteShop) {
+              setShop(remoteShop);
+            }
+          });
+
+          // 2. Real-time subscription to postgres changes for live 100% sync
+          unsubscribeRealtime = shopService.subscribeToShopChanges(storedShop.id, (fresh) => {
+            setShop(fresh);
+          });
+
           const totalCreated = await billingService.getTotalBillsCreated(storedShop.id);
           const { subscription: sub, statusInfo } = await subscriptionService.getShopSubscription(
             storedShop.id,
@@ -94,7 +111,20 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     loadShop();
+
+    return () => {
+      if (unsubscribeRealtime) {
+        unsubscribeRealtime();
+      }
+    };
   }, [profile?.id]);
+
+  const uploadLogo = async (file: File | Blob): Promise<string> => {
+    if (!shop) throw new Error('No active shop found');
+    const publicUrl = await shopService.uploadShopLogo(shop.id, file);
+    await updateShop({ logoUrl: publicUrl });
+    return publicUrl;
+  };
 
   const updateShop = async (updated: Partial<Shop>): Promise<Shop> => {
     if (!shop) throw new Error('No active shop found to update');
@@ -151,6 +181,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscriptionStatus,
         isLoading,
         updateShop,
+        uploadLogo,
         registerNewShop,
         refreshSubscription,
         clearShop,

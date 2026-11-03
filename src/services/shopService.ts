@@ -213,6 +213,151 @@ export const shopService = {
     return { shop, member };
   },
 
+  async getShop(shopId: string): Promise<Shop | null> {
+    if (!shopId) return null;
+    try {
+      const { data, error } = await (supabase.from('shops') as any)
+        .select('*')
+        .eq('id', shopId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const shop: Shop = {
+          id: data.id,
+          name: data.name,
+          shopType: (data.shop_type as ShopType) || 'Tea Shop',
+          phone: data.phone,
+          email: data.email,
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || 'Tamil Nadu',
+          country: data.country || 'India',
+          pincode: data.pincode || '',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          logoUrl: data.logo_url,
+          currencyCode: data.currency_code || 'INR',
+          timezone: data.timezone || 'Asia/Kolkata',
+          gstEnabled: data.gst_enabled ?? false,
+          gstRate: data.gst_rate ?? 5,
+          gstNumber: data.gst_number,
+          roundOffEnabled: data.round_off_enabled ?? true,
+          dailyBackupEnabled: data.daily_backup_enabled ?? true,
+          printerEnabled: data.printer_enabled ?? false,
+          printerName: data.printer_name,
+          tableManagementEnabled: data.table_management_enabled ?? false,
+          tableCount: data.table_count ?? 6,
+          ownerName: data.owner_name,
+          invoicePrefix: data.invoice_prefix,
+          invoiceResetCycle: data.invoice_reset_cycle,
+          totalBillsCreated: data.total_bills_created ?? 0,
+          upiId: data.upi_id,
+          isActive: data.is_active ?? true,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        };
+        await storage.setObject(LOCAL_SHOP_KEY, shop);
+        return shop;
+      }
+    } catch (err) {
+      console.warn('getShop remote error:', err);
+    }
+    return null;
+  },
+
+  async uploadShopLogo(shopId: string, file: File | Blob): Promise<string> {
+    const ext = file instanceof File ? (file.name.split('.').pop() || 'png') : 'png';
+    const filePath = `logos/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('shop-logos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type || 'image/png',
+        });
+
+      if (!error && data) {
+        const { data: publicData } = supabase.storage
+          .from('shop-logos')
+          .getPublicUrl(data.path);
+
+        if (publicData?.publicUrl) {
+          return publicData.publicUrl;
+        }
+      } else if (error) {
+        console.warn('Supabase shop-logos upload error:', error.message);
+      }
+    } catch (err) {
+      console.warn('uploadShopLogo exception:', err);
+    }
+
+    // Fallback to data URL if storage upload is unavailable
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  },
+
+  subscribeToShopChanges(shopId: string, onUpdate: (shop: Shop) => void): () => void {
+    if (!shopId) return () => {};
+
+    const channel = supabase
+      .channel(`web-shop-sync-${shopId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'shops', filter: `id=eq.${shopId}` },
+        (payload: any) => {
+          if (payload.new) {
+            const data = payload.new;
+            const updatedShop: Shop = {
+              id: data.id,
+              name: data.name,
+              shopType: (data.shop_type as ShopType) || 'Tea Shop',
+              phone: data.phone,
+              email: data.email,
+              address: data.address || '',
+              city: data.city || '',
+              state: data.state || 'Tamil Nadu',
+              country: data.country || 'India',
+              pincode: data.pincode || '',
+              latitude: data.latitude,
+              longitude: data.longitude,
+              logoUrl: data.logo_url,
+              currencyCode: data.currency_code || 'INR',
+              timezone: data.timezone || 'Asia/Kolkata',
+              gstEnabled: data.gst_enabled ?? false,
+              gstRate: data.gst_rate ?? 5,
+              gstNumber: data.gst_number,
+              roundOffEnabled: data.round_off_enabled ?? true,
+              dailyBackupEnabled: data.daily_backup_enabled ?? true,
+              printerEnabled: data.printer_enabled ?? false,
+              printerName: data.printer_name,
+              tableManagementEnabled: data.table_management_enabled ?? false,
+              tableCount: data.table_count ?? 6,
+              ownerName: data.owner_name,
+              invoicePrefix: data.invoice_prefix,
+              invoiceResetCycle: data.invoice_reset_cycle,
+              totalBillsCreated: data.total_bills_created ?? 0,
+              upiId: data.upi_id,
+              isActive: data.is_active ?? true,
+              createdAt: data.created_at,
+              updatedAt: data.updated_at,
+            };
+            storage.setObject(LOCAL_SHOP_KEY, updatedShop);
+            onUpdate(updatedShop);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
   async updateShop(shop: Shop): Promise<Shop> {
     await storage.setObject(LOCAL_SHOP_KEY, shop);
 
@@ -224,6 +369,8 @@ export const shopService = {
           address: shop.address,
           city: shop.city,
           pincode: shop.pincode,
+          logo_url: shop.logoUrl || null,
+          owner_name: shop.ownerName || null,
           gst_enabled: shop.gstEnabled,
           gst_rate: shop.gstRate,
           gst_number: shop.gstNumber,
@@ -231,6 +378,8 @@ export const shopService = {
           upi_id: shop.upiId,
           printer_enabled: shop.printerEnabled,
           printer_name: shop.printerName,
+          table_management_enabled: shop.tableManagementEnabled,
+          table_count: shop.tableCount,
           updated_at: new Date().toISOString(),
         })
         .eq('id', shop.id);

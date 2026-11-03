@@ -1072,6 +1072,15 @@
   place-items: center;
   font: 600 17px var(--head);
   flex: none;
+  overflow: hidden;
+}
+
+.c365-dashboard .av img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .c365-dashboard .cc .av {

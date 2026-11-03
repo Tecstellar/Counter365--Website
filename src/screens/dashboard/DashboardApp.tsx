@@ -66,7 +66,7 @@ interface CartItemState {
 
 export const DashboardApp: React.FC = () => {
   const { profile, currentRole, logout, isLoading: isAuthLoading } = useAuth();
-  const { shop, subscriptionStatus, updateShop, isLoading: isShopLoading } = useShop();
+  const { shop, subscriptionStatus, updateShop, uploadLogo, isLoading: isShopLoading } = useShop();
 
   // Navigation State
   const [tab, setTab] = useState<DashboardTab>('home');
@@ -1953,13 +1953,29 @@ Generated via Counter365 POS Cloud`;
           </nav>
 
           <div className="mode">
-            <span className="ch">
-              <svg className="ic">
-                <use href="#shield" />
-              </svg>
-            </span>
+            {shop?.logoUrl ? (
+              <img
+                src={shop.logoUrl}
+                alt={shop.name || 'Store Logo'}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  flexShrink: 0,
+                  border: '1.5px solid var(--ln)',
+                  background: 'var(--card)',
+                }}
+              />
+            ) : (
+              <span className="ch">
+                <svg className="ic">
+                  <use href="#shield" />
+                </svg>
+              </span>
+            )}
             <div>
-              <small>Counter mode</small>
+              <small>{shop?.name || 'Counter mode'}</small>
               <b>{currentRole} access</b>
             </div>
             <i className="lv" title="Live Cloud Sync"></i>
@@ -1973,9 +1989,26 @@ Generated via Counter365 POS Cloud`;
             <div className="shop">
               <div
                 className={`av ${subscriptionStatus?.isPaidActive ? 'is-pro' : ''}`}
-                style={{ position: 'relative' }}
+                style={{ position: 'relative', overflow: 'hidden' }}
               >
-                {(shop.name || 'C')[0].toUpperCase()}
+                {shop?.logoUrl ? (
+                  <img
+                    src={shop.logoUrl}
+                    alt={shop.name || 'Shop Logo'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  (shop?.name || 'C')[0].toUpperCase()
+                )}
                 {subscriptionStatus?.isPaidActive && (
                   <span className="diamond-badge" title="Counter365 Pro Member">
                     💎
@@ -1983,9 +2016,9 @@ Generated via Counter365 POS Cloud`;
                 )}
               </div>
               <div>
-                <b>{shop.name || 'Counter 365'}</b>
+                <b>{shop?.name || 'Counter 365'}</b>
                 <small>
-                  {shop.city || 'Anna Nagar, Chennai'} · {currentRole}
+                  {shop?.city || 'Anna Nagar, Chennai'} · {currentRole}
                 </small>
               </div>
             </div>
@@ -4797,17 +4830,17 @@ Generated via Counter365 POS Cloud`;
                             ref={logoInputRef}
                             accept="image/*"
                             style={{ display: 'none' }}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onload = async () => {
-                                  if (typeof reader.result === 'string') {
-                                    await updateShop({ logoUrl: reader.result });
-                                    showToast('Shop logo updated successfully!');
-                                  }
-                                };
-                                reader.readAsDataURL(file);
+                                try {
+                                  showToast('Uploading shop logo to cloud...');
+                                  await uploadLogo(file);
+                                  showToast('Shop logo updated & synced with mobile!');
+                                } catch (err) {
+                                  console.error('Logo upload error:', err);
+                                  showToast('Failed to upload shop logo.');
+                                }
                               }
                             }}
                           />
@@ -5518,9 +5551,17 @@ Generated via Counter365 POS Cloud`;
             {/* Shop Identity Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <img
-                src="/counter365_mark.png"
-                alt="Counter365 Logo"
-                style={{ width: '40px', height: '40px', objectFit: 'contain', flexShrink: 0 }}
+                src={shop?.logoUrl || '/counter365_mark.png'}
+                alt={shop?.name || 'Shop Logo'}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  objectFit: 'cover',
+                  borderRadius: shop?.logoUrl ? '50%' : '8px',
+                  flexShrink: 0,
+                  border: '1px solid var(--ln)',
+                  background: 'var(--card)',
+                }}
               />
               <div>
                 <b style={{ font: '700 20px var(--head)', display: 'block', letterSpacing: '-0.02em', color: 'var(--ink)' }}>
@@ -5651,7 +5692,18 @@ Generated via Counter365 POS Cloud`;
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <img src="/counter365_mark.png" alt="Counter 365" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
+                <img
+                  src={shop?.logoUrl || '/counter365_mark.png'}
+                  alt={shop?.name || 'Shop Logo'}
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    objectFit: 'cover',
+                    borderRadius: shop?.logoUrl ? '50%' : '8px',
+                    border: '1px solid var(--ln)',
+                    background: 'var(--card)',
+                  }}
+                />
                 <div>
                   <h3 style={{ margin: 0, font: '700 18px var(--head)', color: 'var(--ink)' }}>
                     Monthly Statement · {reportMonthName}
