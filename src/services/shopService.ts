@@ -304,8 +304,9 @@ export const shopService = {
   subscribeToShopChanges(shopId: string, onUpdate: (shop: Shop) => void): () => void {
     if (!shopId) return () => {};
 
+    const channelName = `web-shop-sync-${shopId}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
-      .channel(`web-shop-sync-${shopId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'shops', filter: `id=eq.${shopId}` },
@@ -450,8 +451,9 @@ export const shopService = {
   subscribeToStaffChanges(shopId: string, onUpdate: () => void): () => void {
     if (!shopId) return () => {};
 
+    const channelName = `web-staff-sync-${shopId}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
-      .channel(`web-staff-sync-${shopId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shop_members', filter: `shop_id=eq.${shopId}` },

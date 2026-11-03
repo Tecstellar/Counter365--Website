@@ -408,6 +408,16 @@ Generated via Counter365 Cloud POS`;
     };
   }, [shop?.id]);
 
+  // Synchronize owner name & shop profile inputs dynamically when live updates arrive from mobile app
+  useEffect(() => {
+    if (shop?.ownerName || profile?.fullName) {
+      setEditOwnerName(shop?.ownerName || profile?.fullName || '');
+    }
+    if (shop?.name) setEditShopName(shop.name);
+    if (shop?.city) setEditShopCity(shop.city);
+    if (shop?.phone) setEditShopPhone(shop.phone);
+  }, [shop?.ownerName, shop?.name, shop?.city, shop?.phone, profile?.fullName]);
+
   // Tab access control based on active staff role & permissions
   const canAccessTab = (t: DashboardTab): boolean => {
     if (currentRole === 'Owner') return true;
@@ -1333,7 +1343,7 @@ Generated via Counter365 Cloud POS`;
     const paid = Number(editBillPaidAmount) || 0;
     const total = editingBill.totalAmount || 0;
     const pending = Math.max(0, total - paid);
-    const editorName = profile?.fullName || 'Owner';
+    const activeEditor = (currentRole === 'Owner' ? (shop?.ownerName || profile?.fullName) : (profile?.fullName || member?.fullName)) || 'Owner';
     const updated: Bill = {
       ...editingBill,
       customerName: editBillCustName.trim() || 'Customer',
@@ -1344,17 +1354,19 @@ Generated via Counter365 Cloud POS`;
       status: 'edited' as any,
       isEdited: true,
       editedAt: new Date().toISOString(),
-      editedByName: editorName,
+      editedByName: activeEditor,
+      editedByRole: currentRole,
     };
 
     try {
       await billingService.updateBill(shop.id, updated, {
-        name: editorName,
+        id: profile?.id,
+        name: activeEditor,
         role: currentRole,
       });
       setBills((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setEditingBill(null);
-      showToast(`Bill updated by ${editorName}.`);
+      showToast(`Bill updated by ${activeEditor}.`);
     } catch (err) {
       console.error(err);
       showToast('Failed to update bill.');
@@ -1535,11 +1547,13 @@ Generated via Counter365 Cloud POS`;
     const dateFormatted = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
     switch (tab) {
-      case 'home':
+      case 'home': {
+        const ownerDisplayName = shop?.ownerName || profile?.fullName || 'Owner';
         return {
-          title: `${greeting}, ${profile?.fullName || 'Owner'}`,
+          title: `${greeting}, ${ownerDisplayName}`,
           sub: `${dateFormatted} · ${shop?.city || 'Counter'}`,
         };
+      }
       case 'pos':
         return {
           title: isTamil ? 'பில்லிங் கவுண்டர்' : 'POS billing',
@@ -3183,15 +3197,15 @@ Generated via Counter365 POS Cloud`;
                               {/* Audit trail metadata */}
                               {isDeleted ? (
                                 <small style={{ display: 'block', fontSize: '11px', color: '#dc2626', fontWeight: 600, marginTop: '2px' }}>
-                                  🗑️ Deleted by {b.deletedByName || 'Owner'}{b.deletedByRole ? ` (${b.deletedByRole})` : ''}
+                                  🗑️ Deleted by {b.deletedByName || 'User'}
                                 </small>
                               ) : isEdited ? (
                                 <small style={{ display: 'block', fontSize: '11px', color: '#d97706', fontWeight: 600, marginTop: '2px' }}>
-                                  ✏️ Edited by {b.editedByName || 'Staff'}
+                                  ✏️ Edited by {b.editedByName || 'User'}
                                 </small>
                               ) : b.createdByName ? (
                                 <small style={{ display: 'block', fontSize: '11px', color: 'var(--mu)', marginTop: '2px' }}>
-                                  Created by {b.createdByName}{b.createdByRole && b.createdByRole !== 'Biller' ? ` (${b.createdByRole})` : ''}
+                                  Created by {b.createdByName}
                                 </small>
                               ) : null}
                             </span>
@@ -6104,31 +6118,101 @@ Generated via Counter365 POS Cloud`;
             className="success-slip-card"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Top-Right Explicit Close Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (successTimerRef.current) clearTimeout(successTimerRef.current);
+                setSavedBillSuccess(null);
+              }}
+              aria-label="Close"
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                border: 'none',
+                background: 'rgba(0, 0, 0, 0.06)',
+                color: 'var(--ink)',
+                display: 'grid',
+                placeItems: 'center',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: 700,
+                zIndex: 3,
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.12)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.06)')}
+            >
+              ✕
+            </button>
+
             {/* Success Header */}
-            <div style={{ textAlign: 'center', marginBottom: '16px', marginTop: '6px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '14px', marginTop: '4px' }}>
               <div
                 style={{
-                  width: '46px',
-                  height: '46px',
+                  width: '50px',
+                  height: '50px',
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                   color: '#fff',
                   display: 'grid',
                   placeItems: 'center',
-                  fontSize: '22px',
+                  fontSize: '24px',
                   fontWeight: 900,
                   margin: '0 auto 10px',
-                  boxShadow: '0 8px 18px rgba(16, 185, 129, 0.35)',
+                  boxShadow: '0 8px 20px rgba(16, 185, 129, 0.4)',
                 }}
               >
                 ✓
               </div>
-              <h3 style={{ margin: 0, font: '700 20px var(--head)', color: 'var(--ok)' }}>
+              <h3 style={{ margin: 0, font: '800 21px var(--head)', color: '#065f46', letterSpacing: '-0.3px' }}>
                 Bill Saved Successfully!
               </h3>
-              <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'var(--ok)' }}>
-                Printed to register & synced to cloud
-              </p>
+              
+              {/* Prominent Bill Number Badge */}
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginTop: '8px',
+                  padding: '4px 14px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  borderRadius: '20px',
+                  border: '1px solid rgba(16, 185, 129, 0.28)',
+                  color: '#047857',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  fontFamily: 'monospace',
+                  letterSpacing: '0.4px',
+                }}
+              >
+                <span>🧾</span> Bill #{bn(savedBillSuccess.billNumber)}
+              </div>
+
+              {/* Eco Quote Banner */}
+              <div
+                style={{
+                  margin: '10px auto 0',
+                  padding: '7px 14px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  color: '#15803d',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>🌱</span> "You saved a piece of paper!"
+              </div>
             </div>
 
             {/* Slip Details Box */}
@@ -6139,7 +6223,7 @@ Generated via Counter365 POS Cloud`;
                 borderRadius: '14px',
                 padding: '14px 16px',
                 border: '1.5px dashed var(--ln)',
-                marginBottom: '16px',
+                marginBottom: '14px',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -6177,7 +6261,7 @@ Generated via Counter365 POS Cloud`;
             </div>
 
             {/* Quick Actions: WhatsApp & Thermal Print */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -6203,6 +6287,7 @@ Generated via Counter365 POS Cloud`;
                   padding: '9px 12px',
                   borderRadius: '10px',
                   border: 'none',
+                  cursor: 'pointer',
                 }}
               >
                 <span>💬</span> Send WhatsApp
@@ -6228,6 +6313,7 @@ Generated via Counter365 POS Cloud`;
                     padding: '9px 12px',
                     borderRadius: '10px',
                     border: 'none',
+                    cursor: 'pointer',
                   }}
                 >
                   <span>🖨️</span> Print Bill ({shop.printerPaperWidth || '80mm'})
@@ -6236,7 +6322,7 @@ Generated via Counter365 POS Cloud`;
             </div>
 
             {/* View PDF Receipt Link */}
-            <div style={{ marginBottom: '12px' }}>
+            <div style={{ marginBottom: '14px' }}>
               <a
                 href={`/b/${savedBillSuccess.id || (savedBillSuccess.billNumber ? encodeURIComponent(savedBillSuccess.billNumber) : '')}`}
                 target="_blank"
@@ -6256,27 +6342,39 @@ Generated via Counter365 POS Cloud`;
                   border: '1px solid var(--ln)',
                   color: 'var(--ink)',
                   textDecoration: 'none',
+                  boxSizing: 'border-box',
                 }}
               >
                 <span>📄</span> View PDF Receipt
               </a>
             </div>
 
-            {/* Bottom Actions */}
+            {/* Bottom Actions & Close Button */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', color: 'var(--ok)', fontWeight: 600 }}>
-                ✓ Synced & Ready
+              <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
+                Synced & Ready
               </span>
               <button
                 type="button"
-                className="btn g sm"
+                className="btn sm"
                 onClick={() => {
                   if (successTimerRef.current) clearTimeout(successTimerRef.current);
                   setSavedBillSuccess(null);
                 }}
-                style={{ padding: '8px 18px', fontSize: '13px', fontWeight: 600 }}
+                style={{
+                  padding: '8px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  borderRadius: '10px',
+                  background: 'var(--ink)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+                }}
               >
-                Close slip ✕
+                ✕ Close Slip
               </button>
             </div>
           </div>

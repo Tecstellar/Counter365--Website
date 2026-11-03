@@ -4,6 +4,7 @@ import { authService, LOCAL_PROFILE_KEY, LOCAL_MEMBER_KEY, LOCAL_SHOP_KEY, Verif
 import { SendOtpResult } from '../services/twoFactorService';
 import { storage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
+import { generateUUID } from '../lib/uuid';
 
 interface AuthContextType {
   profile: UserProfile | null;
@@ -126,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!member?.id) return;
 
-    const channelName = `auth-member-live-${member.id}`;
+    const channelName = `auth-member-live-${member.id}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -203,6 +204,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase.removeChannel(channel);
     };
   }, [member?.id]);
+
+  // Real-time synchronization for user profile updates (e.g. Owner name changed in mobile app)
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const channelName = `auth-profile-live-${profile.id}_${generateUUID().slice(0, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profile.id}` },
+        (payload: any) => {
+          if (payload.new && payload.new.full_name) {
+            setProfile((prev) => {
+              if (!prev) return null;
+              const updated: UserProfile = {
+                ...prev,
+                fullName: payload.new.full_name,
+                avatarUrl: payload.new.avatar_url || prev.avatarUrl,
+              };
+              storage.setObject(LOCAL_PROFILE_KEY, updated);
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
+
+  // Real-time synchronization for shop updates (e.g. Owner name or shop name changed in mobile app)
+  useEffect(() => {
+    if (!currentShop?.id) return;
+
+    const channelName = `auth-shop-live-${currentShop.id}_${generateUUID().slice(0, 8)}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'shops', filter: `id=eq.${currentShop.id}` },
+        (payload: any) => {
+          if (payload.new) {
+            setCurrentShop((prev) => {
+              if (!prev) return null;
+              const updated: Shop = {
+                ...prev,
+                name: payload.new.name ?? prev.name,
+                ownerName: payload.new.owner_name ?? prev.ownerName,
+                phone: payload.new.phone ?? prev.phone,
+                city: payload.new.city ?? prev.city,
+                address: payload.new.address ?? prev.address,
+                gstRate: payload.new.gst_rate ?? prev.gstRate,
+                tableCount: payload.new.table_count ?? prev.tableCount,
+                logoUrl: payload.new.logo_url ?? prev.logoUrl,
+                printerEnabled: payload.new.printer_enabled ?? prev.printerEnabled,
+                printerPaperWidth: payload.new.printer_paper_width ?? prev.printerPaperWidth,
+              };
+              storage.setObject(LOCAL_SHOP_KEY, updated);
+              return updated;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentShop?.id]);
 
   const can = (permission: PermissionKey): boolean => {
     return authService.canUserPerform(currentRole, permission, member?.overrides);

@@ -742,17 +742,19 @@ export const billingService = {
     }
   },
 
-  async updateBill(shopId: string, updatedBill: Bill, user?: { name?: string; role?: string }): Promise<void> {
+  async updateBill(shopId: string, updatedBill: Bill, user?: { id?: string; name?: string; role?: string }): Promise<void> {
     const key = this.getStorageKey(shopId);
     const bills = await storage.getObject<Bill[]>(key, []);
     const idx = bills.findIndex(b => b.id === updatedBill.id);
 
-    const editorName = user?.name || updatedBill.editedByName || 'Staff';
+    const editorName = user?.name || updatedBill.editedByName || 'Owner';
+    const editorRole = user?.role || updatedBill.editedByRole || 'Owner';
     const editedTime = new Date().toISOString();
 
     updatedBill.isEdited = true;
     updatedBill.editedAt = editedTime;
     updatedBill.editedByName = editorName;
+    updatedBill.editedByRole = editorRole;
 
     if (idx >= 0) {
       bills[idx] = updatedBill;
@@ -772,6 +774,8 @@ export const billingService = {
           is_edited: true,
           edited_at: editedTime,
           edited_by_name: editorName,
+          edited_by_role: editorRole,
+          edited_by_id: user?.id || null,
           updated_at: editedTime,
         })
         .eq('id', updatedBill.id);

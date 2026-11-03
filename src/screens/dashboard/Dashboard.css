@@ -1717,15 +1717,29 @@
 .c365-dashboard .success-slip-card {
   background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 90px, #ffffff 100%);
   border: 2px solid #10b981;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 24px 24px 4px 4px;
+  padding: 24px 24px 34px;
   width: 90%;
   max-width: 440px;
-  box-shadow: 0 25px 60px -15px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 25px 60px -15px rgba(16, 185, 129, 0.35), 0 0 0 1px rgba(16, 185, 129, 0.2);
   animation: receiptSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   color: #0f172a;
+}
+
+/* Serrated Sawtooth Jagged Tear Edge at bottom (jacket detail) */
+.c365-dashboard .success-slip-card::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: -12px;
+  height: 12px;
+  background: linear-gradient(135deg, #ffffff 25%, transparent 25%) -8px 0,
+              linear-gradient(225deg, #ffffff 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.08));
 }
 
 .c365-dashboard.theme-dark .success-slip-card {
@@ -1733,6 +1747,12 @@
   border: 2px solid #059669 !important;
   color: #f8fafc !important;
   box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.3) !important;
+}
+
+.c365-dashboard.theme-dark .success-slip-card::after {
+  background: linear-gradient(135deg, #181c28 25%, transparent 25%) -8px 0,
+              linear-gradient(225deg, #181c28 25%, transparent 25%) -8px 0;
+  background-size: 16px 16px;
 }
 
 .c365-dashboard.theme-dark .success-slip-card .success-slip-box {

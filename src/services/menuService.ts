@@ -123,8 +123,9 @@ export const menuService = {
   subscribeToMenuChanges(shopId: string, onUpdate: () => void): () => void {
     if (!shopId) return () => {};
 
+    const channelName = `web-menu-sync-${shopId}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
-      .channel(`web-menu-sync-${shopId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'menu_categories', filter: `shop_id=eq.${shopId}` },

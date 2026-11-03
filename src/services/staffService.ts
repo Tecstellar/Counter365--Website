@@ -330,8 +330,10 @@ export const staffService = {
    * Listen to real-time changes on shop_members table
    */
   subscribeToShopMembers(shopId: string, onUpdate: () => void) {
+    if (!shopId) return () => {};
+    const channelName = `shop_members_${shopId}_${generateUUID().slice(0, 8)}`;
     const channel = supabase
-      .channel(`shop_members_${shopId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shop_members', filter: `shop_id=eq.${shopId}` },
