@@ -5570,14 +5570,7 @@ Generated via Counter365 POS Cloud`;
                 ) : (
                   /* USERS & STAFF TAB */
                   <div>
-                    <UsersStaffSection
-                      shopId={shop?.id}
-                      onCountChange={(count) => {
-                        if (staffList.length !== count) {
-                          staffService.getShopMembers(shop!.id).then((fresh) => setStaffList(fresh));
-                        }
-                      }}
-                    />
+                    <UsersStaffSection shopId={shop?.id} />
                   </div>
                 )}
               </div>

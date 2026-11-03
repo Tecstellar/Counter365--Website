@@ -50,6 +50,17 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, Record<PermissionKey, bo
   },
 };
 
+export const MODULE_PERMISSIONS: Array<{ key: PermissionKey; label: string; desc: string }> = [
+  { key: 'bill', label: 'Take bills', desc: 'Create, collect payment, and print customer bills' },
+  { key: 'total', label: "See the day's takings", desc: 'View today revenue summary, split, and total bills' },
+  { key: 'exp', label: 'Add expenses', desc: 'Record shop daily payouts, wages, and raw materials' },
+  { key: 'pend', label: 'Clear pending', desc: 'Settle customer udhar khata balances and dues' },
+  { key: 'report', label: 'See day report and analytics', desc: 'Access monthly reports, graphs, and audit ledgers' },
+  { key: 'menu', label: 'Edit menu and prices', desc: 'Change prices, portion availability, and food names' },
+  { key: 'menu_delete', label: 'Delete menu items and categories', desc: 'Permanently remove dishes or categories' },
+  { key: 'users', label: 'Add or remove users', desc: 'Manage staff accounts and operational roles' },
+];
+
 export interface ShopMember {
   id: string;
   shopId: string;
