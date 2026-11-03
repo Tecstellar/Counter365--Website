@@ -396,24 +396,47 @@ export const shopService = {
 
     try {
       const { data, error } = await (supabase.from('shop_members') as any)
-        .select('*')
+        .select('*, profile:profiles!shop_members_user_id_fkey(id, full_name, phone, avatar_url)')
         .eq('shop_id', shopId)
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        const members: ShopMember[] = data.map((m: any) => ({
-          id: m.id,
-          shopId: m.shop_id,
-          userId: m.user_id,
-          fullName: m.full_name || 'Staff Member',
-          phone: m.phone || '',
-          role: m.role as UserRole,
-          isActive: m.is_active ?? true,
-          overrides: m.permissions_override,
-          deactivatedAt: m.deactivated_at,
-          deactivatedBy: m.deactivated_by,
-          deactivationReason: m.deactivation_reason,
-        }));
+        // Also fetch user_permission_overrides to combine
+        let upoMap: Record<string, Record<string, boolean>> = {};
+        try {
+          const { data: upoData } = await (supabase.from('user_permission_overrides') as any)
+            .select('*')
+            .eq('shop_id', shopId);
+          if (upoData && Array.isArray(upoData)) {
+            upoData.forEach((u: any) => {
+              if (!upoMap[u.member_id]) upoMap[u.member_id] = {};
+              upoMap[u.member_id][u.permission_key] = !!u.granted;
+            });
+          }
+        } catch (upoErr) {
+          console.warn('user_permission_overrides fetch notice:', upoErr);
+        }
+
+        const members: ShopMember[] = data.map((m: any) => {
+          const jsonbOverrides = m.permissions_override || {};
+          const dbOverrides = upoMap[m.id] || {};
+          const mergedOverrides = { ...jsonbOverrides, ...dbOverrides };
+
+          return {
+            id: m.id,
+            shopId: m.shop_id,
+            userId: m.user_id,
+            fullName: m.full_name || m.profile?.full_name || 'Staff Member',
+            phone: m.phone || m.profile?.phone || '',
+            role: m.role as UserRole,
+            isActive: m.is_active ?? true,
+            overrides: Object.keys(mergedOverrides).length > 0 ? mergedOverrides : undefined,
+            deactivatedAt: m.deactivated_at,
+            deactivatedBy: m.deactivated_by,
+            deactivationReason: m.deactivation_reason,
+          };
+        });
+
         await storage.setObject(key, members);
         return members;
       }
@@ -424,19 +447,80 @@ export const shopService = {
     return local;
   },
 
+  subscribeToStaffChanges(shopId: string, onUpdate: () => void): () => void {
+    if (!shopId) return () => {};
+
+    const channel = supabase
+      .channel(`web-staff-sync-${shopId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shop_members', filter: `shop_id=eq.${shopId}` },
+        () => {
+          onUpdate();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_permission_overrides', filter: `shop_id=eq.${shopId}` },
+        () => {
+          onUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
   async addStaffMember(
     shopId: string,
     params: { fullName: string; phone: string; role: UserRole; overrides?: Partial<Record<PermissionKey, boolean>> }
   ): Promise<ShopMember> {
     const key = `@counterpro/members_${shopId}`;
     const members = await storage.getObject<ShopMember[]>(key, []);
+    const cleanPhone = params.phone.replace(/[^0-9]/g, '').slice(-10);
+    const memberId = generateUUID();
+    let profileId = '';
+
+    // Relational Foreign Key Integrity: shop_members.user_id -> profiles(id)
+    try {
+      const { data: existingProf } = await (supabase.from('profiles') as any)
+        .select('id, full_name, phone')
+        .eq('phone', cleanPhone)
+        .maybeSingle();
+
+      if (existingProf?.id) {
+        profileId = existingProf.id;
+        if (!existingProf.full_name || existingProf.full_name === 'Staff Member') {
+          await (supabase.from('profiles') as any)
+            .update({
+              full_name: params.fullName.trim(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', profileId);
+        }
+      } else {
+        profileId = generateUUID();
+        await (supabase.from('profiles') as any).insert({
+          id: profileId,
+          full_name: params.fullName.trim(),
+          phone: cleanPhone,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (profErr) {
+      console.warn('Profile sync in addStaffMember notice:', profErr);
+      if (!profileId) profileId = generateUUID();
+    }
 
     const newMember: ShopMember = {
-      id: generateUUID(),
+      id: memberId,
       shopId,
-      userId: generateUUID(),
+      userId: profileId,
       fullName: params.fullName.trim(),
-      phone: params.phone.replace(/[^0-9]/g, '').slice(-10),
+      phone: cleanPhone,
       role: params.role,
       isActive: true,
       overrides: params.overrides,
@@ -449,13 +533,27 @@ export const shopService = {
       await (supabase.from('shop_members') as any).insert({
         id: newMember.id,
         shop_id: shopId,
-        user_id: newMember.userId,
+        user_id: profileId,
         full_name: newMember.fullName,
         phone: newMember.phone,
         role: newMember.role,
         is_active: true,
-        permissions_override: params.overrides || null,
+        permissions_override: params.overrides || {},
+        joined_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
+
+      // Also persist to user_permission_overrides table
+      if (params.overrides && Object.keys(params.overrides).length > 0) {
+        const upoRows = Object.entries(params.overrides).map(([permKey, granted]) => ({
+          shop_id: shopId,
+          member_id: memberId,
+          permission_key: permKey,
+          granted: !!granted,
+        }));
+        await (supabase.from('user_permission_overrides') as any).upsert(upoRows);
+      }
     } catch (err) {
       console.warn('addStaffMember remote error:', err);
     }
@@ -467,36 +565,80 @@ export const shopService = {
     memberId: string,
     shopId: string,
     role: UserRole,
-    overrides?: Partial<Record<PermissionKey, boolean>>
+    overrides?: Partial<Record<PermissionKey, boolean>>,
+    meta?: { fullName?: string; phone?: string }
   ): Promise<void> {
     const key = `@counterpro/members_${shopId}`;
     const members = await storage.getObject<ShopMember[]>(key, []);
-    const match = members.find(m => m.id === memberId);
+    const match = members.find((m) => m.id === memberId);
     if (match) {
       match.role = role;
       match.overrides = overrides;
+      if (meta?.fullName) match.fullName = meta.fullName.trim();
+      if (meta?.phone) match.phone = meta.phone.replace(/\D/g, '').slice(-10);
       await storage.setObject(key, members);
     }
 
     try {
+      const updatePayload: any = {
+        role,
+        permissions_override: overrides || {},
+        updated_at: new Date().toISOString(),
+      };
+      if (meta?.fullName) updatePayload.full_name = meta.fullName.trim();
+      if (meta?.phone) updatePayload.phone = meta.phone.replace(/\D/g, '').slice(-10);
+
       await (supabase.from('shop_members') as any)
-        .update({
-          role,
-          permissions_override: overrides || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', memberId);
+
+      // If user profile is linked, sync profile name
+      if (match?.userId && meta?.fullName) {
+        await (supabase.from('profiles') as any)
+          .update({
+            full_name: meta.fullName.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', match.userId);
+      }
+
+      // Sync user_permission_overrides table
+      await (supabase.from('user_permission_overrides') as any)
+        .delete()
+        .eq('member_id', memberId);
+
+      if (overrides && Object.keys(overrides).length > 0) {
+        const upoRows = Object.entries(overrides).map(([permKey, granted]) => ({
+          shop_id: shopId,
+          member_id: memberId,
+          permission_key: permKey,
+          granted: !!granted,
+        }));
+        await (supabase.from('user_permission_overrides') as any).upsert(upoRows);
+      }
     } catch (err) {
       console.warn('updateMemberRole remote error:', err);
     }
   },
 
-  async toggleMemberActive(memberId: string, shopId: string, isActive: boolean): Promise<void> {
+  async toggleMemberActive(
+    memberId: string,
+    shopId: string,
+    isActive: boolean,
+    deactivatedBy?: string
+  ): Promise<void> {
     const key = `@counterpro/members_${shopId}`;
     const members = await storage.getObject<ShopMember[]>(key, []);
-    const match = members.find(m => m.id === memberId);
+    const match = members.find((m) => m.id === memberId);
     if (match) {
       match.isActive = isActive;
+      if (!isActive) {
+        match.deactivatedAt = new Date().toISOString();
+        match.deactivatedBy = deactivatedBy;
+      } else {
+        match.deactivatedAt = undefined;
+        match.deactivatedBy = undefined;
+      }
       await storage.setObject(key, members);
     }
 
@@ -504,6 +646,8 @@ export const shopService = {
       await (supabase.from('shop_members') as any)
         .update({
           is_active: isActive,
+          deactivated_at: isActive ? null : new Date().toISOString(),
+          deactivated_by: isActive ? null : (deactivatedBy || null),
           updated_at: new Date().toISOString(),
         })
         .eq('id', memberId);
@@ -515,10 +659,14 @@ export const shopService = {
   async removeStaffMember(memberId: string, shopId: string): Promise<void> {
     const key = `@counterpro/members_${shopId}`;
     const members = await storage.getObject<ShopMember[]>(key, []);
-    const filtered = members.filter(m => m.id !== memberId);
+    const filtered = members.filter((m) => m.id !== memberId);
     await storage.setObject(key, filtered);
 
     try {
+      await (supabase.from('user_permission_overrides') as any)
+        .delete()
+        .eq('member_id', memberId);
+
       await (supabase.from('shop_members') as any)
         .delete()
         .eq('id', memberId);

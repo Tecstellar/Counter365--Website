@@ -65,7 +65,7 @@ interface CartItemState {
 }
 
 export const DashboardApp: React.FC = () => {
-  const { profile, currentRole, logout, isLoading: isAuthLoading } = useAuth();
+  const { profile, member, currentRole, can, logout, isLoading: isAuthLoading } = useAuth();
   const { shop, subscriptionStatus, updateShop, uploadLogo, isLoading: isShopLoading } = useShop();
 
   // Navigation State
@@ -373,11 +373,59 @@ Generated via Counter365 Cloud POS`;
       }
     });
 
+    // Real-time synchronization for staff accounts & permissions with mobile app
+    const unsubscribeStaff = shopService.subscribeToStaffChanges(shop.id, async () => {
+      try {
+        const freshStaff = await shopService.getShopMembers(shop.id);
+        if (isMounted) {
+          setStaffList(freshStaff || []);
+        }
+      } catch (err) {
+        console.warn('Realtime staff update error:', err);
+      }
+    });
+
     return () => {
       isMounted = false;
       unsubscribeMenu();
+      unsubscribeStaff();
     };
   }, [shop?.id]);
+
+  // Tab access control based on active staff role & permissions
+  const canAccessTab = (t: DashboardTab): boolean => {
+    if (currentRole === 'Owner') return true;
+    switch (t) {
+      case 'home':
+        return true;
+      case 'pos':
+        return can('bill');
+      case 'bills':
+        return can('total') || can('bill');
+      case 'khata':
+        return can('pend');
+      case 'menu':
+        return can('menu');
+      case 'exp':
+        return can('exp');
+      case 'cust':
+        return true;
+      case 'rep':
+        return can('report');
+      case 'set':
+        return can('users');
+      default:
+        return true;
+    }
+  };
+
+  // If active tab permissions are revoked, kick back to allowed tab (home)
+  useEffect(() => {
+    if (!canAccessTab(tab)) {
+      setTab('home');
+      showToast('You do not have access to that module');
+    }
+  }, [tab, currentRole, member?.overrides]);
 
   // Close open bill popups on outside click
   useEffect(() => {
@@ -388,7 +436,7 @@ Generated via Counter365 Cloud POS`;
     return () => window.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  // Keyboard navigation shortcuts 1 to 9
+  // Keyboard navigation shortcuts 1 to 9 (strictly filtered by permitted tabs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -400,15 +448,16 @@ Generated via Counter365 Cloud POS`;
         return;
       }
       const navKeys: DashboardTab[] = ['home', 'pos', 'bills', 'khata', 'menu', 'exp', 'cust', 'rep', 'set'];
+      const allowedKeys = navKeys.filter((t) => canAccessTab(t));
       const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 9) {
-        setTab(navKeys[num - 1]);
+      if (num >= 1 && num <= allowedKeys.length) {
+        setTab(allowedKeys[num - 1]);
         setSearchQuery('');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [currentRole, member?.overrides]);
 
   // Format rupee
   const fm = (n: number) => '₹' + Math.round(n || 0).toLocaleString('en-IN');
@@ -2019,30 +2068,32 @@ Generated via Counter365 POS Cloud`;
           </div>
 
           <nav className="keys" aria-label="Main Navigation">
-            {navItems.map((item, idx) => {
-              const isActive = tab === item.id;
-              const label = isTamil ? item.ta : item.en;
+            {navItems
+              .filter((item) => canAccessTab(item.id))
+              .map((item, idx) => {
+                const isActive = tab === item.id;
+                const label = isTamil ? item.ta : item.en;
 
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setTab(item.id);
-                    setSearchQuery('');
-                  }}
-                  className={isActive ? 'on' : ''}
-                  aria-label={label}
-                >
-                  <span className="ch">
-                    <svg className="ic">
-                      <use href={`#${item.icon}`} />
-                    </svg>
-                  </span>
-                  <span className="lb">{label}</span>
-                  <em>{idx + 1}</em>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setTab(item.id);
+                      setSearchQuery('');
+                    }}
+                    className={isActive ? 'on' : ''}
+                    aria-label={label}
+                  >
+                    <span className="ch">
+                      <svg className="ic">
+                        <use href={`#${item.icon}`} />
+                      </svg>
+                    </span>
+                    <span className="lb">{label}</span>
+                    <em>{idx + 1}</em>
+                  </button>
+                );
+              })}
           </nav>
 
           <div className="mode">
@@ -2197,10 +2248,12 @@ Generated via Counter365 POS Cloud`;
                           : 'Today so far'}
                       </small>
                       <b>
-                        {hoveredHour !== null ? fm(hourlyData[hoveredHour]) : fm(totals.sales)}
+                        {hoveredHour !== null
+                          ? (can('total') ? fm(hourlyData[hoveredHour]) : '₹••••')
+                          : (can('total') ? fm(totals.sales) : '₹••••')}
                       </b>
                       <span>
-                        {hoveredHour !== null ? 'sold this hour' : goalSub}
+                        {hoveredHour !== null ? 'sold this hour' : (can('total') ? goalSub : 'Access restricted')}
                       </span>
                     </div>
                   </div>
@@ -2224,18 +2277,18 @@ Generated via Counter365 POS Cloud`;
                     <div className="pl">
                       <p>
                         <i style={{ background: 'var(--brand)' }}></i>Cash in drawer
-                        <b>{fm(totals.cash)}</b>
+                        <b>{can('total') ? fm(totals.cash) : '₹••••'}</b>
                       </p>
                       <p>
                         <i style={{ background: 'var(--ind)' }}></i>GPay / UPI
-                        <b>{fm(totals.upi)}</b>
+                        <b>{can('total') ? fm(totals.upi) : '₹••••'}</b>
                       </p>
                       <p>
                         <i style={{ background: '#ffc29d' }}></i>
-                        <a className="lnk" onClick={() => setTab('khata')}>
+                        <a className="lnk" onClick={() => can('pend') && setTab('khata')}>
                           Khata still to collect →
                         </a>
-                        <b>{fm(totals.due)}</b>
+                        <b>{can('total') ? fm(totals.due) : '₹••••'}</b>
                       </p>
                     </div>
                   </div>
@@ -2244,16 +2297,16 @@ Generated via Counter365 POS Cloud`;
                     <span className="lbl">Today’s take-home</span>
                     <div className="lg">
                       <p>
-                        Sales<b>{fm(totals.sales)}</b>
+                        Sales<b>{can('total') ? fm(totals.sales) : '₹••••'}</b>
                       </p>
                       <p>
-                        <a className="lnk" onClick={() => setTab('exp')}>
+                        <a className="lnk" onClick={() => can('exp') && setTab('exp')}>
                           Expenses →
                         </a>
-                        <b>− {fm(totals.exp)}</b>
+                        <b>{can('total') ? `− ${fm(totals.exp)}` : '₹••••'}</b>
                       </p>
                       <p className="net">
-                        Net profit<b>{fm(totals.net)}</b>
+                        Net profit<b>{can('total') ? fm(totals.net) : '₹••••'}</b>
                       </p>
                     </div>
                   </div>
@@ -2270,27 +2323,27 @@ Generated via Counter365 POS Cloud`;
                   <div className="slip" style={{ marginTop: '14px', marginBottom: '14px' }}>
                     <p style={{ borderTop: 0, padding: '7px 0' }}>
                       <span>{isTamil ? 'மொத்த விற்பனை' : 'Total sales'}</span>
-                      <b>{fm(totals.sales)}</b>
+                      <b>{can('total') ? fm(totals.sales) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'பெட்டி ரொக்கம்' : 'Cash in drawer'}</span>
-                      <b>{fm(totals.cash)}</b>
+                      <b>{can('total') ? fm(totals.cash) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'ஜிபே / UPI' : 'GPay / UPI'}</span>
-                      <b>{fm(totals.upi)}</b>
+                      <b>{can('total') ? fm(totals.upi) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'நிலுவை கடன்' : 'Pending khata'}</span>
-                      <b style={{ color: totals.due > 0 ? 'var(--brand)' : 'inherit' }}>{fm(totals.due)}</b>
+                      <b style={{ color: totals.due > 0 ? 'var(--brand)' : 'inherit' }}>{can('total') ? fm(totals.due) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'செலவுகள்' : 'Expenses'}</span>
-                      <b>− {fm(totals.exp)}</b>
+                      <b>{can('total') ? `− ${fm(totals.exp)}` : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '10px 0 6px', borderTop: '2px solid var(--ink)', font: '600 17px var(--head)' }}>
                       <span style={{ color: 'var(--ink)' }}>{isTamil ? 'நிகர லாபம்' : 'Net profit'}</span>
-                      <b style={{ color: 'var(--brand)', fontSize: '20px' }}>{fm(totals.net)}</b>
+                      <b style={{ color: 'var(--brand)', fontSize: '20px' }}>{can('total') ? fm(totals.net) : '₹••••'}</b>
                     </p>
                   </div>
 
@@ -5617,19 +5670,34 @@ Generated via Counter365 POS Cloud`;
                                   </div>
                                 </div>
 
-                                <span
-                                  style={{
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    padding: '3px 8px',
-                                    borderRadius: '99px',
-                                    background: m.role === 'Supervisor' ? 'rgba(59, 130, 246, 0.15)' : 'var(--bsoft)',
-                                    color: m.role === 'Supervisor' ? '#60a5fa' : 'var(--ink2)',
-                                    border: '1px solid var(--ln)',
-                                  }}
-                                >
-                                  {m.role}
-                                </span>
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  <span
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: '99px',
+                                      background: m.role === 'Supervisor' ? 'rgba(59, 130, 246, 0.15)' : 'var(--bsoft)',
+                                      color: m.role === 'Supervisor' ? '#60a5fa' : 'var(--ink2)',
+                                      border: '1px solid var(--ln)',
+                                    }}
+                                  >
+                                    {m.role}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 700,
+                                      padding: '3px 8px',
+                                      borderRadius: '99px',
+                                      background: m.isActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                      color: m.isActive ? '#16a34a' : '#ef4444',
+                                      border: '1px solid var(--ln)',
+                                    }}
+                                  >
+                                    {m.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                </div>
                               </div>
 
                               <div style={{ background: 'var(--card)', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', marginBottom: '14px', border: '1px solid var(--ln)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -5637,7 +5705,7 @@ Generated via Counter365 POS Cloud`;
                                 <b style={{ color: 'var(--ink)' }}>{allowedCount} of 8 modules allowed</b>
                               </div>
 
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                                 <button
                                   type="button"
                                   className="btn g sm"
@@ -5653,10 +5721,33 @@ Generated via Counter365 POS Cloud`;
                                     });
                                     setIsStaffModalOpen(true);
                                   }}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '5px 12px' }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '5px 10px' }}
                                 >
                                   <span className="icon-edit" style={{ width: '13px', height: '13px' }} />
-                                  <span>Edit permissions</span>
+                                  <span>Edit</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="btn g sm"
+                                  onClick={async () => {
+                                    const nextState = !m.isActive;
+                                    if (confirm(nextState ? `Activate staff member ${m.fullName}?` : `Deactivate ${m.fullName}? This will immediately log them out from all active sessions.`)) {
+                                      await shopService.toggleMemberActive(m.id, shop.id, nextState, profile?.id);
+                                      setStaffList((prev) => prev.map((x) => (x.id === m.id ? { ...x, isActive: nextState } : x)));
+                                      showToast(nextState ? `${m.fullName} activated` : `${m.fullName} deactivated — session ended`);
+                                    }
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    fontSize: '12px',
+                                    padding: '5px 10px',
+                                    color: m.isActive ? '#ea580c' : '#16a34a',
+                                  }}
+                                >
+                                  <span>{m.isActive ? 'Deactivate' : 'Activate'}</span>
                                 </button>
 
                                 <button
@@ -5669,7 +5760,7 @@ Generated via Counter365 POS Cloud`;
                                       showToast('Staff member removed');
                                     }
                                   }}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontSize: '12px', padding: '5px 10px' }}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontSize: '12px', padding: '5px 8px' }}
                                 >
                                   <span className="icon-delete" style={{ width: '13px', height: '13px', color: '#ef4444' }} />
                                   <span>Delete</span>
@@ -6640,7 +6731,8 @@ Generated via Counter365 POS Cloud`;
                         editingStaffMember.id,
                         shop.id,
                         newStaffRole,
-                        newStaffOverrides
+                        newStaffOverrides,
+                        { fullName: newStaffName.trim(), phone: cleanPhone }
                       );
                       setStaffList((prev) =>
                         prev.map((m) =>
