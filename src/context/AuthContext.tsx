@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
   profile: UserProfile | null;
   member: ShopMember | null;
+  currentMember: ShopMember | null;
+  currentShop: Shop | null;
   currentRole: UserRole;
   isLoading: boolean;
   can: (permission: PermissionKey) => boolean;
@@ -20,6 +22,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   profile: null,
   member: null,
+  currentMember: null,
+  currentShop: null,
   currentRole: 'Owner',
   isLoading: true,
   can: () => false,
@@ -32,6 +36,7 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [member, setMember] = useState<ShopMember | null>(null);
+  const [currentShop, setCurrentShop] = useState<Shop | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('Owner');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -41,6 +46,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const session = await authService.getStoredSession();
         if (session.profile) {
           setProfile(session.profile);
+        }
+        if (session.shop) {
+          setCurrentShop(session.shop);
         }
 
         if (session.member) {
@@ -203,6 +211,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await authService.verifyOtp(phone, token);
     if (res.success && res.profile) {
       setProfile(res.profile);
+      if (res.shop) {
+        setCurrentShop(res.shop);
+      }
       if (res.member) {
         setMember(res.member);
         setCurrentRole(res.member.role);
@@ -216,6 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setSessionDirect = async (newProfile: UserProfile, newShop: Shop, newMember?: ShopMember): Promise<void> => {
     await storage.setObject(LOCAL_PROFILE_KEY, newProfile);
     await storage.setObject(LOCAL_SHOP_KEY, newShop);
+    setCurrentShop(newShop);
     if (newMember) {
       await storage.setObject(LOCAL_MEMBER_KEY, newMember);
       setMember(newMember);
@@ -230,6 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authService.clearSession();
     setProfile(null);
     setMember(null);
+    setCurrentShop(null);
     setCurrentRole('Owner');
   };
 
@@ -238,6 +251,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         profile,
         member,
+        currentMember: member,
+        currentShop,
         currentRole,
         isLoading,
         can,

@@ -42,6 +42,7 @@ export interface Shop {
   roundOffEnabled: boolean;
   dailyBackupEnabled: boolean;
   printerEnabled: boolean;
+  printerPaperWidth?: '58mm' | '80mm';
   printerName?: string | null;
   printerUrl?: string | null;
   printerConnectionType?: string | null;

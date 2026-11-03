@@ -10,6 +10,9 @@ import { shopService, DEFAULT_ROLE_PERMS, MODULE_PERMISSIONS } from '../../servi
 import { Bill, MenuItem, MenuCategory, ExpenseRecord, CustomerRecord, VendorRecord, PaymentMethod, ShopMember, UserRole, PermissionKey, SubscriptionPlanId } from '../../types/models';
 import { subscriptionService, PRO_PLANS } from '../../services/subscriptionService';
 import { generateUUID } from '../../lib/uuid';
+import { webPrinterService } from '../../services/webPrinterService';
+import { webWhatsappService } from '../../services/webWhatsappService';
+import { UsersStaffSection } from '../../components/settings/UsersStaffSection';
 import {
   Store,
   Users,
@@ -856,15 +859,24 @@ Generated via Counter365 Cloud POS`;
           } catch {}
         }
 
-        // WhatsApp Share
-        if (options.shareViaWhatsApp && options.customerPhone) {
-          const cleanPhone = options.customerPhone.replace(/[^0-9]/g, '').slice(-10);
-          const billLines = cart.map((c) => `• ${c.n} x ${c.q} = ₹${c.p * c.q}`).join('\n');
-          const tableText = savedBill.tableNumber ? `\n🍽️ *Table:* ${savedBill.tableNumber}` : '';
-          const dueText = savedBill.pendingAmount > 0 ? `\n⏳ *Khata Due:* ₹${savedBill.pendingAmount}` : '';
-          const waMessage = `🧾 *${shop?.name || 'Counter 365'}*\n*Bill No:* ${bn(savedBill.billNumber)}${tableText}\n*Date:* ${new Date(savedBill.createdAt).toLocaleDateString('en-IN')}\n--------------------\n${billLines}\n--------------------\n*Total Amount:* ₹${savedBill.totalAmount}\n*Payment Mode:* ${savedBill.paymentMode}${dueText}\n\nThank you for visiting! 🙏`;
-          const waUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(waMessage)}`;
-          window.open(waUrl, '_blank');
+        // WhatsApp Share via webWhatsappService
+        if (options.shareViaWhatsApp) {
+          webWhatsappService.shareCustomerBill(
+            savedBill,
+            shop?.name || 'Counter 365',
+            shop?.upiId,
+            shop?.phone,
+            options.customerPhone
+          );
+        }
+
+        // Thermal Printer Auto-Print (if printerEnabled is ON)
+        if (shop?.printerEnabled) {
+          try {
+            webPrinterService.printReceipt(savedBill, shop, shop.printerPaperWidth);
+          } catch (printErr) {
+            console.warn('Thermal receipt auto-print notice:', printErr);
+          }
         }
 
         // Reset cart, table, and checkout states
@@ -1245,23 +1257,24 @@ Generated via Counter365 Cloud POS`;
   // Bill Actions: Share via WhatsApp
   const handleShareBillWhatsApp = (b: Bill) => {
     setOpenBillMenuId(null);
-    const billLines = (b.items || [])
-      .map((it) => `• ${it.itemName}${it.isHalf ? ' (½)' : ''} x${it.quantity} - ₹${it.lineTotal}`)
-      .join('\n');
-    const cleanPhone = b.customerPhone ? b.customerPhone.replace(/\D/g, '').slice(-10) : '';
-    const dateFormatted = b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN') : 'Today';
-    const text = `🧾 *${shop?.name || 'Counter 365'}*\n*Bill No:* ${bn(b.billNumber)}\n*Date:* ${dateFormatted}\n--------------------\n${billLines || 'Bill Details'}\n--------------------\n*Total Amount:* ₹${b.totalAmount}\n*Payment Mode:* ${b.paymentMode}${b.pendingAmount > 0 ? `\n*Khata Balance:* ₹${b.pendingAmount}` : ''}\n\nThank you for visiting! 🙏`;
-    const url = cleanPhone
-      ? `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    webWhatsappService.shareCustomerBill(
+      b,
+      shop?.name || 'Counter 365',
+      shop?.upiId,
+      shop?.phone,
+      b.customerPhone
+    );
   };
 
-  // Bill Actions: Print Bill
+  // Bill Actions: Print Bill (Direct Thermal Print)
   const handlePrintSingleBill = (b: Bill) => {
     setOpenBillMenuId(null);
-    setSavedBillSuccess(b);
-    showToast(`Opening receipt for ${bn(b.billNumber)}`);
+    if (shop) {
+      webPrinterService.printReceipt(b, shop, shop.printerPaperWidth);
+      showToast(`Printing receipt for ${bn(b.billNumber)}`);
+    } else {
+      setSavedBillSuccess(b);
+    }
   };
 
   // Bill Actions: Delete Bill
@@ -5203,24 +5216,21 @@ Generated via Counter365 POS Cloud`;
                         <div className="opt" style={{ border: 0, paddingBottom: '14px' }}>
                           <div>
                             <b style={{ fontWeight: 600, color: 'var(--ink)' }}>Thermal printer</b>
-                            <small style={{ color: 'var(--mu)' }}>Direct wireless or USB ESC/POS thermal receipt printing</small>
+                            <small style={{ color: 'var(--mu)' }}>
+                              {shop?.printerEnabled
+                                ? `Enabled • ${shop?.printerPaperWidth || '80mm'} thermal paper roll`
+                                : 'Off • Enable for fast POS counter receipts'}
+                            </small>
                           </div>
                           <button
                             type="button"
                             className={`sw ${shop?.printerEnabled ? 'on' : ''}`}
                             onClick={async () => {
                               const next = !shop?.printerEnabled;
-                              await updateShop({ printerEnabled: next });
-                              if (next) {
-                                setIsScanningPrinters(true);
-                                setPrinterScanDone(false);
-                                setTimeout(() => {
-                                  setIsScanningPrinters(false);
-                                  setPrinterScanDone(true);
-                                }, 1200);
-                              } else {
-                                setPrinterScanDone(false);
-                              }
+                              await updateShop({
+                                printerEnabled: next,
+                                printerPaperWidth: shop?.printerPaperWidth || '80mm',
+                              });
                             }}
                             role="switch"
                             aria-checked={!!shop?.printerEnabled}
@@ -5228,41 +5238,78 @@ Generated via Counter365 POS Cloud`;
                           />
                         </div>
 
-                        {/* Printer Status Box */}
+                        {/* Paper Size Selection (Only when printer is ON) */}
                         {shop?.printerEnabled && (
-                          <div style={{ marginBottom: '18px' }}>
-                            {isScanningPrinters ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'var(--card)', borderRadius: '10px', fontSize: '13px', color: 'var(--mu)', border: '1px solid var(--ln)' }}>
-                                <div className="w-4 h-4 border-2 border-[#ff5f00] border-t-transparent rounded-full animate-spin" />
-                                <span>Scanning for connected thermal printers...</span>
-                              </div>
-                            ) : (
-                              <div className="no-printer-alert">
-                                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
-                                  <Printer className="w-8 h-8 text-[#76716B]" />
-                                </div>
-                                <b style={{ display: 'block', fontSize: '14px', marginBottom: '4px' }}>No printers found</b>
-                                <p style={{ margin: '0 0 12px', fontSize: '12px' }}>
-                                  Turn on your Bluetooth/USB thermal printer or ensure print service is active.
-                                </p>
-                                <button
-                                  type="button"
-                                  className="btn g sm"
-                                  onClick={() => {
-                                    setIsScanningPrinters(true);
-                                    setTimeout(() => {
-                                      setIsScanningPrinters(false);
-                                      setPrinterScanDone(true);
-                                      showToast('Scan completed. No printers responded.');
-                                    }, 1200);
-                                  }}
-                                  style={{ fontWeight: 600, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                                >
-                                  <RefreshCw className="w-3.5 h-3.5" />
-                                  <span>Retry scan</span>
-                                </button>
-                              </div>
-                            )}
+                          <div
+                            style={{
+                              background: 'var(--bsoft)',
+                              padding: '16px',
+                              borderRadius: '14px',
+                              border: '1px solid var(--ln)',
+                              marginBottom: '18px',
+                            }}
+                          >
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)', marginBottom: '10px' }}>
+                              Select Thermal Paper Size:
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                              <button
+                                type="button"
+                                onClick={() => updateShop({ printerPaperWidth: '58mm' })}
+                                className="btn sm"
+                                style={{
+                                  padding: '10px 14px',
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  borderRadius: '10px',
+                                  textAlign: 'center',
+                                  justifyContent: 'center',
+                                  background: (shop?.printerPaperWidth || '80mm') === '58mm' ? 'var(--brand)' : 'var(--card)',
+                                  color: (shop?.printerPaperWidth || '80mm') === '58mm' ? '#ffffff' : 'var(--ink)',
+                                  border: (shop?.printerPaperWidth || '80mm') === '58mm' ? '1px solid var(--brand)' : '1px solid var(--ln)',
+                                }}
+                              >
+                                58 mm (2-inch Roll)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateShop({ printerPaperWidth: '80mm' })}
+                                className="btn sm"
+                                style={{
+                                  padding: '10px 14px',
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  borderRadius: '10px',
+                                  textAlign: 'center',
+                                  justifyContent: 'center',
+                                  background: (shop?.printerPaperWidth || '80mm') === '80mm' ? 'var(--brand)' : 'var(--card)',
+                                  color: (shop?.printerPaperWidth || '80mm') === '80mm' ? '#ffffff' : 'var(--ink)',
+                                  border: (shop?.printerPaperWidth || '80mm') === '80mm' ? '1px solid var(--brand)' : '1px solid var(--ln)',
+                                }}
+                              >
+                                80 mm (3-inch Roll)
+                              </button>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => webPrinterService.printTestSlip(shop!, shop?.printerPaperWidth || '80mm')}
+                                className="btn g sm"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  fontSize: '12.5px',
+                                  fontWeight: 600,
+                                  padding: '7px 14px',
+                                  borderRadius: '8px',
+                                }}
+                              >
+                                <span>🖨️</span>
+                                <span>Test Print Slip</span>
+                              </button>
+                            </div>
                           </div>
                         )}
 
@@ -5522,255 +5569,7 @@ Generated via Counter365 POS Cloud`;
                 ) : (
                   /* USERS & STAFF TAB */
                   <div>
-                    {/* Primary Owner Account Card (Master ID Owner) */}
-                    <div className="profile-header-card" style={{ marginBottom: '20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <div
-                          style={{
-                            width: '54px',
-                            height: '54px',
-                            borderRadius: '50%',
-                            background: 'var(--brand)',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Crown className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <b style={{ fontSize: '18px', color: 'var(--ink)' }}>
-                              {shop?.ownerName || profile?.fullName || shop?.name || 'Deju Tea Stall'}
-                            </b>
-                            <span
-                              style={{
-                                background: 'var(--bsoft)',
-                                color: 'var(--brand)',
-                                padding: '2px 8px',
-                                borderRadius: '99px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                              }}
-                            >
-                              Master ID · Owner
-                            </span>
-                            <span
-                              style={{
-                                background: 'var(--okbg)',
-                                color: 'var(--ok)',
-                                padding: '2px 8px',
-                                borderRadius: '99px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                              }}
-                            >
-                              Active
-                            </span>
-                          </div>
-                          <small style={{ color: 'var(--mu)', fontSize: '12.5px', display: 'block', marginTop: '2px' }}>
-                            +91 {shop?.phone || profile?.phone || '98400 12345'} · Full access across all 8 modules & settings
-                          </small>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Staff Accounts Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                      <div>
-                        <h3 style={{ margin: 0, font: '700 20px var(--head)', color: 'var(--ink)' }}>
-                          Staff Accounts & Cashiers
-                        </h3>
-                        <small style={{ color: 'var(--mu)', fontSize: '13px' }}>
-                          Manage supervisors, billers, and module-specific access permissions
-                        </small>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="btn b sm"
-                        onClick={() => {
-                          setEditingStaffMember(null);
-                          setNewStaffName('');
-                          setNewStaffPhone('');
-                          setNewStaffRole('Supervisor');
-                          setNewStaffOverrides({
-                            ...DEFAULT_ROLE_PERMS.Supervisor,
-                          });
-                          setIsStaffModalOpen(true);
-                        }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', borderRadius: '10px' }}
-                      >
-                        <span>+</span>
-                        <span>Add user</span>
-                      </button>
-                    </div>
-
-                    {/* Staff Members List */}
-                    {staffList.length === 0 ? (
-                      <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-                          <Users className="w-10 h-10 text-[#76716B]" />
-                        </div>
-                        <b style={{ fontSize: '16px', color: 'var(--ink)', display: 'block', marginBottom: '4px' }}>
-                          No additional staff users added yet
-                        </b>
-                        <p style={{ color: 'var(--mu)', fontSize: '13px', maxWidth: '400px', margin: '0 auto 16px' }}>
-                          Add your counter cashiers as <b>Billers</b> or shop managers as <b>Supervisors</b> with custom module permissions.
-                        </p>
-                        <button
-                          type="button"
-                          className="btn b sm"
-                          onClick={() => {
-                            setEditingStaffMember(null);
-                            setNewStaffName('');
-                            setNewStaffPhone('');
-                            setNewStaffRole('Supervisor');
-                            setNewStaffOverrides({ ...DEFAULT_ROLE_PERMS.Supervisor });
-                            setIsStaffModalOpen(true);
-                          }}
-                        >
-                          + Add first staff member
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
-                        {staffList.map((m) => {
-                          const overrides = m.overrides || {};
-                          const basePerms = DEFAULT_ROLE_PERMS[m.role] || DEFAULT_ROLE_PERMS.Biller;
-                          const allowedCount = MODULE_PERMISSIONS.filter(
-                            (p) => overrides[p.key] !== undefined ? overrides[p.key] : basePerms[p.key]
-                          ).length;
-
-                          return (
-                            <div key={m.id} className="card" style={{ marginBottom: 0, padding: '18px' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  <div
-                                    style={{
-                                      width: '40px',
-                                      height: '40px',
-                                      borderRadius: '50%',
-                                      background: m.role === 'Supervisor' ? 'rgba(59, 130, 246, 0.2)' : 'var(--bsoft)',
-                                      color: m.role === 'Supervisor' ? '#60a5fa' : 'var(--ink2)',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      fontWeight: 700,
-                                      fontSize: '16px',
-                                    }}
-                                  >
-                                    {(m.fullName || 'S')[0].toUpperCase()}
-                                  </div>
-                                  <div>
-                                    <b style={{ fontSize: '15px', color: 'var(--ink)', display: 'block' }}>{m.fullName}</b>
-                                    <small style={{ color: 'var(--mu)', fontSize: '12px' }}>+91 {m.phone}</small>
-                                  </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                  <span
-                                    style={{
-                                      fontSize: '11px',
-                                      fontWeight: 700,
-                                      padding: '3px 8px',
-                                      borderRadius: '99px',
-                                      background: m.role === 'Supervisor' ? 'rgba(59, 130, 246, 0.15)' : 'var(--bsoft)',
-                                      color: m.role === 'Supervisor' ? '#60a5fa' : 'var(--ink2)',
-                                      border: '1px solid var(--ln)',
-                                    }}
-                                  >
-                                    {m.role}
-                                  </span>
-                                  <span
-                                    style={{
-                                      fontSize: '11px',
-                                      fontWeight: 700,
-                                      padding: '3px 8px',
-                                      borderRadius: '99px',
-                                      background: m.isActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                      color: m.isActive ? '#16a34a' : '#ef4444',
-                                      border: '1px solid var(--ln)',
-                                    }}
-                                  >
-                                    {m.isActive ? 'Active' : 'Inactive'}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div style={{ background: 'var(--card)', borderRadius: '8px', padding: '8px 12px', fontSize: '12px', marginBottom: '14px', border: '1px solid var(--ln)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ color: 'var(--mu)' }}>Permissions:</span>
-                                <b style={{ color: 'var(--ink)' }}>{allowedCount} of 8 modules allowed</b>
-                              </div>
-
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                                <button
-                                  type="button"
-                                  className="btn g sm"
-                                  onClick={() => {
-                                    setEditingStaffMember(m);
-                                    setNewStaffName(m.fullName);
-                                    setNewStaffPhone(m.phone);
-                                    setNewStaffRole(m.role);
-                                    const base = DEFAULT_ROLE_PERMS[m.role] || DEFAULT_ROLE_PERMS.Biller;
-                                    setNewStaffOverrides({
-                                      ...base,
-                                      ...(m.overrides || {}),
-                                    });
-                                    setIsStaffModalOpen(true);
-                                  }}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '5px 10px' }}
-                                >
-                                  <span className="icon-edit" style={{ width: '13px', height: '13px' }} />
-                                  <span>Edit</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn g sm"
-                                  onClick={async () => {
-                                    const nextState = !m.isActive;
-                                    if (confirm(nextState ? `Activate staff member ${m.fullName}?` : `Deactivate ${m.fullName}? This will immediately log them out from all active sessions.`)) {
-                                      await shopService.toggleMemberActive(m.id, shop.id, nextState, profile?.id);
-                                      setStaffList((prev) => prev.map((x) => (x.id === m.id ? { ...x, isActive: nextState } : x)));
-                                      showToast(nextState ? `${m.fullName} activated` : `${m.fullName} deactivated — session ended`);
-                                    }
-                                  }}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontSize: '12px',
-                                    padding: '5px 10px',
-                                    color: m.isActive ? '#ea580c' : '#16a34a',
-                                  }}
-                                >
-                                  <span>{m.isActive ? 'Deactivate' : 'Activate'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="btn g sm"
-                                  onClick={async () => {
-                                    if (confirm(`Remove staff member ${m.fullName}?`)) {
-                                      await shopService.removeStaffMember(m.id, shop.id);
-                                      setStaffList((prev) => prev.filter((x) => x.id !== m.id));
-                                      showToast('Staff member removed');
-                                    }
-                                  }}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', fontSize: '12px', padding: '5px 8px' }}
-                                >
-                                  <span className="icon-delete" style={{ width: '13px', height: '13px', color: '#ef4444' }} />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <UsersStaffSection />
                   </div>
                 )}
               </div>
@@ -6315,6 +6114,65 @@ Generated via Counter365 POS Cloud`;
                 <b style={{ fontSize: '15px', color: 'var(--ink)' }}>Total Amount</b>
                 <b style={{ fontSize: '19px', color: '#059669' }}>{fm(savedBillSuccess.totalAmount)}</b>
               </div>
+            </div>
+
+            {/* Quick Actions: WhatsApp & Thermal Print */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  webWhatsappService.shareCustomerBill(
+                    savedBillSuccess,
+                    shop?.name || 'Counter 365',
+                    shop?.upiId,
+                    shop?.phone,
+                    savedBillSuccess.customerPhone
+                  );
+                }}
+                className="btn sm"
+                style={{
+                  flex: 1,
+                  background: '#059669',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                }}
+              >
+                <span>💬</span> Send WhatsApp
+              </button>
+
+              {shop?.printerEnabled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    webPrinterService.printReceipt(savedBillSuccess, shop, shop.printerPaperWidth);
+                  }}
+                  className="btn sm"
+                  style={{
+                    flex: 1,
+                    background: '#FF5F00',
+                    color: '#fff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    padding: '9px 12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                  }}
+                >
+                  <span>🖨️</span> Print Bill ({shop.printerPaperWidth || '80mm'})
+                </button>
+              )}
             </div>
 
             {/* Bottom Actions */}
