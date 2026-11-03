@@ -87,6 +87,18 @@ export const DashboardApp: React.FC = () => {
     });
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (e) {
+      console.warn('Logout notice:', e);
+    } finally {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    }
+  };
+
   const [toastMsg, setToastMsg] = useState<string>('');
   const toastTimerRef = useRef<any>(null);
 
@@ -1525,8 +1537,8 @@ Generated via Counter365 Cloud POS`;
     switch (tab) {
       case 'home':
         return {
-          title: `${greeting}, ${profile.fullName || 'Owner'}`,
-          sub: `${dateFormatted} · ${shop.city || 'Counter'}`,
+          title: `${greeting}, ${profile?.fullName || 'Owner'}`,
+          sub: `${dateFormatted} · ${shop?.city || 'Counter'}`,
         };
       case 'pos':
         return {
@@ -2109,33 +2121,56 @@ Generated via Counter365 POS Cloud`;
               })}
           </nav>
 
-          <div className="mode">
-            {shop?.logoUrl ? (
-              <img
-                src={shop.logoUrl}
-                alt={shop.name || 'Store Logo'}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  flexShrink: 0,
-                  border: '1.5px solid var(--ln)',
-                  background: 'var(--card)',
-                }}
-              />
-            ) : (
-              <span className="ch">
-                <svg className="ic">
-                  <use href="#shield" />
-                </svg>
-              </span>
-            )}
-            <div>
-              <small>{shop?.name || 'Counter mode'}</small>
-              <b>{currentRole} access</b>
+          <div className="mode" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+              {shop?.logoUrl ? (
+                <img
+                  src={shop.logoUrl}
+                  alt={shop.name || 'Store Logo'}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    flexShrink: 0,
+                    border: '1.5px solid var(--ln)',
+                    background: 'var(--card)',
+                  }}
+                />
+              ) : (
+                <span className="ch">
+                  <svg className="ic">
+                    <use href="#shield" />
+                  </svg>
+                </span>
+              )}
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <small style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shop?.name || 'Counter mode'}</small>
+                <b>{currentRole} access</b>
+              </div>
             </div>
-            <i className="lv" title="Live Cloud Sync"></i>
+            <button
+              type="button"
+              className="btn g sm"
+              onClick={handleLogout}
+              title="Sign out / Logout"
+              aria-label="Sign out"
+              style={{
+                padding: '6px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--mu)',
+                flexShrink: 0,
+              }}
+            >
+              <svg className="ic" style={{ width: '18px', height: '18px' }}>
+                <use href="#out" />
+              </svg>
+            </button>
           </div>
         </aside>
 
@@ -2199,7 +2234,14 @@ Generated via Counter365 POS Cloud`;
               <button className="btn g sm" onClick={() => setIsTamil((prev) => !prev)}>
                 {isTamil ? 'English' : 'தமிழ்'}
               </button>
-              <button className="btn g sm" onClick={logout} aria-label="Sign out">
+              <button
+                type="button"
+                className="btn g sm"
+                onClick={handleLogout}
+                aria-label="Sign out"
+                title="Sign out / Logout"
+                style={{ cursor: 'pointer' }}
+              >
                 <svg className="ic">
                   <use href="#out" />
                 </svg>

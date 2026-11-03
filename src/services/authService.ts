@@ -288,6 +288,15 @@ export const authService = {
     await storage.removeItem(LOCAL_PROFILE_KEY);
     await storage.removeItem(LOCAL_SHOP_KEY);
     await storage.removeItem(LOCAL_MEMBER_KEY);
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(LOCAL_PROFILE_KEY);
+        window.localStorage.removeItem(LOCAL_SHOP_KEY);
+        window.localStorage.removeItem(LOCAL_MEMBER_KEY);
+      }
+    } catch (e) {
+      console.warn('clearSession notice:', e);
+    }
   },
 
   canUserPerform(

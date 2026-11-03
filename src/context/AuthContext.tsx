@@ -139,8 +139,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await authService.clearSession();
             setProfile(null);
             setMember(null);
+            setCurrentShop(null);
             setCurrentRole('Owner');
-            window.location.reload();
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
             return;
           }
 
@@ -240,12 +243,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(newProfile);
   };
 
-  const logout = async () => {
-    await authService.clearSession();
+  const logout = async (): Promise<void> => {
+    try {
+      await authService.clearSession();
+    } catch (e) {
+      console.warn('Error clearing session:', e);
+    }
     setProfile(null);
     setMember(null);
     setCurrentShop(null);
     setCurrentRole('Owner');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   return (
