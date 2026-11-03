@@ -940,8 +940,13 @@ export const LoginScreen: React.FC = () => {
 
                       <p className="status">
                         <span className="dot"></span>
-                        <span>{isLoading ? 'Confirming authentication…' : 'Waiting for mobile scan…'}</span>
+                        <span>{isLoading ? 'Confirming authentication…' : 'Waiting for mobile pairing…'}</span>
                       </p>
+                      {qrSession?.code && (
+                        <div style={{ marginTop: '8px', textAlign: 'center', fontSize: '13px', color: '#1B120B' }}>
+                          Terminal Code: <strong style={{ letterSpacing: '2px', color: '#FF5F00', fontSize: '15px' }}>{qrSession.code}</strong>
+                        </div>
+                      )}
                     </div>
 
                     <div className="pr">

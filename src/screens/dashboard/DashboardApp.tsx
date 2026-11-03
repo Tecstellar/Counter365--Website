@@ -12,6 +12,7 @@ import { subscriptionService, PRO_PLANS } from '../../services/subscriptionServi
 import { generateUUID } from '../../lib/uuid';
 import { webPrinterService } from '../../services/webPrinterService';
 import { webWhatsappService } from '../../services/webWhatsappService';
+import { staffService } from '../../services/staffService';
 import { UsersStaffSection } from '../../components/settings/UsersStaffSection';
 import {
   Store,
@@ -332,7 +333,7 @@ Generated via Counter365 Cloud POS`;
           contactService.getCustomers(shop!.id),
           menuService.getCategories(shop!.id, (shop!.shopType as any) || 'Tea Shop'),
           contactService.getVendors(shop!.id),
-          shopService.getShopMembers(shop!.id),
+          staffService.getShopMembers(shop!.id),
         ]);
 
         if (isMounted) {
@@ -377,9 +378,9 @@ Generated via Counter365 Cloud POS`;
     });
 
     // Real-time synchronization for staff accounts & permissions with mobile app
-    const unsubscribeStaff = shopService.subscribeToStaffChanges(shop.id, async () => {
+    const unsubscribeStaff = staffService.subscribeToShopMembers(shop.id, async () => {
       try {
-        const freshStaff = await shopService.getShopMembers(shop.id);
+        const freshStaff = await staffService.getShopMembers(shop.id);
         if (isMounted) {
           setStaffList(freshStaff || []);
         }
@@ -5014,7 +5015,7 @@ Generated via Counter365 POS Cloud`;
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
                     <Users className="w-4 h-4" />
-                    <span>{isTamil ? 'பயனர்கள் & ஊழியர்கள்' : 'Users & Staff'} ({staffList.length + 1})</span>
+                    <span>{isTamil ? 'பயனர்கள் & ஊழியர்கள்' : 'Users & Staff'} ({staffList.length})</span>
                   </button>
                 </div>
 
@@ -5569,7 +5570,14 @@ Generated via Counter365 POS Cloud`;
                 ) : (
                   /* USERS & STAFF TAB */
                   <div>
-                    <UsersStaffSection />
+                    <UsersStaffSection
+                      shopId={shop?.id}
+                      onCountChange={(count) => {
+                        if (staffList.length !== count) {
+                          staffService.getShopMembers(shop!.id).then((fresh) => setStaffList(fresh));
+                        }
+                      }}
+                    />
                   </div>
                 )}
               </div>

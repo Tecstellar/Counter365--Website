@@ -1,11 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { staffService, ShopMember, UserRole, PermissionKey, ROLE_DEFAULT_PERMISSIONS } from '../../services/staffService';
 import { useAuth } from '../../context/AuthContext';
+import { useShop } from '../../context/ShopContext';
+import { storage } from '../../lib/storage';
+import { LOCAL_SHOP_KEY } from '../../services/authService';
+import { Shop } from '../../types/models';
 
-export const UsersStaffSection: React.FC = () => {
-  const { currentShop, currentMember } = useAuth();
-  const shopId = currentShop?.id || '';
-  const isOwner = currentMember?.role === 'Owner';
+export const UsersStaffSection: React.FC<{ shopId?: string; onCountChange?: (count: number) => void }> = ({
+  shopId: propShopId,
+  onCountChange,
+}) => {
+  const { currentShop, currentMember, currentRole } = useAuth();
+  const { shop: contextShop } = useShop();
+
+  const [activeShopId, setActiveShopId] = useState<string>(
+    propShopId || contextShop?.id || currentShop?.id || ''
+  );
+  const isOwner = currentRole === 'Owner' || currentMember?.role === 'Owner';
 
   const [members, setMembers] = useState<ShopMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,29 +33,62 @@ export const UsersStaffSection: React.FC = () => {
   // Edit Permissions Modal State
   const [selectedMember, setSelectedMember] = useState<ShopMember | null>(null);
 
+  // Resolve shopId if missing
+  useEffect(() => {
+    async function resolveShopId() {
+      if (propShopId) {
+        setActiveShopId(propShopId);
+        return;
+      }
+      if (contextShop?.id) {
+        setActiveShopId(contextShop.id);
+        return;
+      }
+      if (currentShop?.id) {
+        setActiveShopId(currentShop.id);
+        return;
+      }
+      const stored = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
+      if (stored?.id) {
+        setActiveShopId(stored.id);
+      }
+    }
+    resolveShopId();
+  }, [propShopId, contextShop?.id, currentShop?.id]);
+
   // Fetch members directly from Supabase
   const loadMembers = useCallback(async () => {
-    if (!shopId) return;
+    let targetShopId = activeShopId;
+    if (!targetShopId) {
+      const stored = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
+      targetShopId = stored?.id || '';
+      if (targetShopId) setActiveShopId(targetShopId);
+    }
+    if (!targetShopId) return;
+
     try {
       setLoading(true);
       setErrorMsg('');
-      const data = await staffService.getShopMembers(shopId);
+      const data = await staffService.getShopMembers(targetShopId);
       setMembers(data);
+      onCountChange?.(data.length);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to load staff list.');
     } finally {
       setLoading(false);
     }
-  }, [shopId]);
+  }, [activeShopId, onCountChange]);
 
   useEffect(() => {
+    if (!activeShopId) return;
     loadMembers();
+
     // Subscribe to live Supabase updates
-    const unsubscribe = staffService.subscribeToShopMembers(shopId, () => {
+    const unsubscribe = staffService.subscribeToShopMembers(activeShopId, () => {
       loadMembers();
     });
     return () => unsubscribe();
-  }, [loadMembers, shopId]);
+  }, [loadMembers, activeShopId]);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +99,7 @@ export const UsersStaffSection: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await staffService.addMember(shopId, newName, newRole, newPhone, newOverrides);
+      await staffService.addMember(activeShopId, newName, newRole, newPhone, newOverrides);
       setIsAddOpen(false);
       setNewName('');
       setNewPhone('');
@@ -72,7 +116,7 @@ export const UsersStaffSection: React.FC = () => {
   const handleRoleChange = async (memberId: string, role: UserRole) => {
     if (!isOwner) return;
     try {
-      await staffService.updateRole(shopId, memberId, role);
+      await staffService.updateRole(activeShopId, memberId, role);
       await loadMembers();
     } catch (err: any) {
       alert('Failed to update role: ' + err.message);
@@ -82,7 +126,7 @@ export const UsersStaffSection: React.FC = () => {
   const handleToggleActive = async (member: ShopMember) => {
     if (!isOwner || member.role === 'Owner') return;
     try {
-      await staffService.toggleMemberActive(shopId, member.id, !member.isActive);
+      await staffService.toggleMemberActive(activeShopId, member.id, !member.isActive);
       await loadMembers();
     } catch (err: any) {
       alert('Failed to update member status.');
@@ -93,7 +137,7 @@ export const UsersStaffSection: React.FC = () => {
     if (!isOwner || member.role === 'Owner') return;
     if (!confirm(`Are you sure you want to remove ${member.fullName}?`)) return;
     try {
-      await staffService.deleteMember(shopId, member.id);
+      await staffService.deleteMember(activeShopId, member.id);
       await loadMembers();
     } catch (err: any) {
       alert('Failed to delete member.');
@@ -331,7 +375,7 @@ export const UsersStaffSection: React.FC = () => {
                     <button
                       onClick={async () => {
                         await staffService.setPermissionOverride(
-                          shopId,
+                          activeShopId,
                           selectedMember.id,
                           selectedMember.overrides || {},
                           perm,

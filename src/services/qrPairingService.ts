@@ -4,6 +4,7 @@ import { UserProfile, Shop, ShopMember } from '../types/models';
 
 export interface QrPairingSession {
   sessionId: string;
+  code: string;
   token: string;
   qrPayload: string;
   expiresAt: number;
@@ -18,6 +19,7 @@ export interface PairingApprovalData {
 export const qrPairingService = {
   createPairingSession(): QrPairingSession {
     const sessionId = generateUUID();
+    const code = sessionId.replace(/-/g, '').substring(0, 6).toUpperCase();
     const token = generateUUID().replace(/-/g, '') + Math.random().toString(36).substring(2);
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes validity
 
@@ -26,12 +28,14 @@ export const qrPairingService = {
       action: 'web_login',
       version: '1.0.4',
       sessionId,
+      code,
       token,
       expiresAt,
     });
 
     return {
       sessionId,
+      code,
       token,
       qrPayload,
       expiresAt,
@@ -47,33 +51,38 @@ export const qrPairingService = {
     onError: (err: string) => void
   ) {
     const channelName = `qr-pairing:${session.sessionId}`;
-    const channel = supabase.channel(channelName, {
-      config: {
-        broadcast: { ack: true },
-      },
-    });
+    const codeChannelName = `qr-pairing:${session.code.toLowerCase()}`;
 
-    channel
-      .on('broadcast', { event: 'pairing_approved' }, (payload) => {
-        const data = payload?.payload;
-        if (data?.token === session.token && data?.profile && data?.shop) {
-          onApproved({
-            profile: data.profile,
-            shop: data.shop,
-            member: data.member,
-          });
-        } else {
-          onError('Pairing verification token mismatch.');
-        }
-      })
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.warn('Realtime channel error for QR pairing');
-        }
-      });
+    const handlePayload = (payload: any) => {
+      const data = payload?.payload;
+      if (
+        (data?.token === session.token || data?.code === session.code) &&
+        data?.profile &&
+        data?.shop
+      ) {
+        onApproved({
+          profile: data.profile,
+          shop: data.shop,
+          member: data.member,
+        });
+      } else {
+        onError('Pairing verification mismatch.');
+      }
+    };
+
+    const channel = supabase.channel(channelName, {
+      config: { broadcast: { ack: true } },
+    });
+    channel.on('broadcast', { event: 'pairing_approved' }, handlePayload).subscribe();
+
+    const codeChannel = supabase.channel(codeChannelName, {
+      config: { broadcast: { ack: true } },
+    });
+    codeChannel.on('broadcast', { event: 'pairing_approved' }, handlePayload).subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(codeChannel);
     };
   },
 };

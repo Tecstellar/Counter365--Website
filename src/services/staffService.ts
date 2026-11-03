@@ -153,14 +153,49 @@ export const staffService = {
       });
     }
 
-    // 2. Check if already a member of this shop
+    // 2. Check if already a member of this shop (by phone or user_id)
     const { data: existingMember } = await (supabase.from('shop_members') as any)
-      .select('id')
+      .select('id, is_active')
       .eq('shop_id', shopId)
-      .eq('phone', cleanDigits)
+      .or(`phone.eq.${cleanDigits},user_id.eq.${targetUserId}`)
       .maybeSingle();
 
     if (existingMember) {
+      if (existingMember.is_active === false) {
+        // Re-activate previously deactivated staff member
+        await (supabase.from('shop_members') as any)
+          .update({
+            is_active: true,
+            role,
+            phone: cleanDigits,
+            full_name: fullName.trim(),
+            permissions_override: overrides || {},
+            deactivated_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingMember.id);
+
+        if (overrides && Object.keys(overrides).length > 0) {
+          const upoRows = Object.entries(overrides).map(([k, v]) => ({
+            shop_id: shopId,
+            member_id: existingMember.id,
+            permission_key: k,
+            granted: !!v,
+          }));
+          await (supabase.from('user_permission_overrides') as any).upsert(upoRows);
+        }
+
+        return {
+          id: existingMember.id,
+          shopId,
+          userId: targetUserId,
+          fullName: fullName.trim(),
+          phone: cleanDigits,
+          role,
+          isActive: true,
+          overrides: overrides || {},
+        };
+      }
       throw new Error('This phone number is already registered as staff for this shop.');
     }
 
