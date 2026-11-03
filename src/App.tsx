@@ -4,6 +4,7 @@ import { LandingPage } from './screens/landing/LandingPage';
 import { LoginScreen } from './screens/LoginScreen';
 import { RegisterScreen } from './screens/RegisterScreen';
 import { DashboardApp } from './screens/dashboard/DashboardApp';
+import { PublicInvoiceScreen } from './screens/public/PublicInvoiceScreen';
 
 export const App: React.FC = () => {
   return (
@@ -20,6 +21,11 @@ export const App: React.FC = () => {
 
         {/* 4. Authenticated POS Application Dashboard */}
         <Route path="/dashboard/*" element={<DashboardApp />} />
+
+        {/* 5. Public WhatsApp E-Receipt & PDF Invoice View (Matches Template Exactly) */}
+        <Route path="/b/:billId" element={<PublicInvoiceScreen />} />
+        <Route path="/invoice/:billId" element={<PublicInvoiceScreen />} />
+        <Route path="/receipt/:billId" element={<PublicInvoiceScreen />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

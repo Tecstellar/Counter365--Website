@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { storage } from '../lib/storage';
 import {
   Bill,
+  Shop,
   CartItem,
   PaymentMethod,
   UserRole,
@@ -11,6 +12,7 @@ import {
 import { calculateGST, formatRupee } from '../lib/money';
 import { generateUUID } from '../lib/uuid';
 import { subscriptionService } from './subscriptionService';
+import { LOCAL_SHOP_KEY } from './authService';
 
 const BILLS_KEY_PREFIX = '@counterpro/bills_';
 const BILL_COUNT_KEY_PREFIX = '@counterpro/bill_count_';
@@ -179,6 +181,187 @@ export const billingService = {
     }
 
     return local;
+  },
+
+  /**
+   * Authoritative public bill & shop resolver for WhatsApp shared links (/b/:billId).
+   * Dynamically reflects updates/edits immediately.
+   */
+  async getPublicBill(billIdentifier: string): Promise<{
+    bill: Bill;
+    shop: Shop | null;
+  } | null> {
+    if (!billIdentifier) return null;
+    const cleanId = billIdentifier.trim();
+
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+      let billData: any = null;
+
+      // 1. Try finding by UUID
+      if (isUuid) {
+        const { data, error } = await (supabase.from('bills') as any)
+          .select('*')
+          .eq('id', cleanId)
+          .maybeSingle();
+        if (!error && data) billData = data;
+      }
+
+      // 2. Try finding by exact bill_number
+      if (!billData) {
+        const { data, error } = await (supabase.from('bills') as any)
+          .select('*')
+          .eq('bill_number', cleanId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!error && data) billData = data;
+      }
+
+      // 3. Try with or without '#' prefix
+      if (!billData) {
+        const altNumber = cleanId.startsWith('#') ? cleanId.replace(/^#/, '') : `#${cleanId}`;
+        const { data, error } = await (supabase.from('bills') as any)
+          .select('*')
+          .eq('bill_number', altNumber)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!error && data) billData = data;
+      }
+
+      // 4. Try ilike match if still not found
+      if (!billData && cleanId.length >= 3) {
+        const { data, error } = await (supabase.from('bills') as any)
+          .select('*')
+          .ilike('bill_number', `%${cleanId}%`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!error && data) billData = data;
+      }
+
+      if (billData) {
+        // Fetch items directly from bill_items (guaranteeing edited items show)
+        const { data: itemRows } = await (supabase.from('bill_items') as any)
+          .select('*')
+          .eq('bill_id', billData.id)
+          .order('created_at', { ascending: true });
+
+        const items: BillItemRecord[] = (itemRows || []).map((it: any) => ({
+          id: it.id,
+          menuItemId: it.menu_item_id,
+          itemName: it.item_name,
+          isHalf: it.is_half ?? false,
+          unitPrice: Number(it.unit_price) || 0,
+          quantity: Number(it.quantity) || 1,
+          lineTotal: Number(it.line_total) || 0,
+        }));
+
+        // Fetch shop details
+        let shopObj: Shop | null = null;
+        if (billData.shop_id) {
+          const { data: sData } = await (supabase.from('shops') as any)
+            .select('*')
+            .eq('id', billData.shop_id)
+            .maybeSingle();
+
+          if (sData) {
+            shopObj = {
+              id: sData.id,
+              name: sData.name,
+              shopType: sData.shop_type,
+              phone: sData.phone,
+              email: sData.email,
+              address: sData.address || '',
+              city: sData.city || '',
+              state: sData.state || 'Tamil Nadu',
+              country: sData.country || 'India',
+              pincode: sData.pincode || '',
+              latitude: sData.latitude,
+              longitude: sData.longitude,
+              logoUrl: sData.logo_url,
+              currencyCode: sData.currency_code || 'INR',
+              timezone: sData.timezone || 'Asia/Kolkata',
+              gstEnabled: sData.gst_enabled ?? false,
+              gstRate: sData.gst_rate ?? 5,
+              gstNumber: sData.gst_number,
+              roundOffEnabled: sData.round_off_enabled ?? true,
+              dailyBackupEnabled: sData.daily_backup_enabled ?? true,
+              printerEnabled: sData.printer_enabled ?? false,
+              printerName: sData.printer_name,
+              tableManagementEnabled: sData.table_management_enabled ?? false,
+              tableCount: sData.table_count ?? 6,
+              ownerName: sData.owner_name,
+              invoicePrefix: sData.invoice_prefix,
+              invoiceResetCycle: sData.invoice_reset_cycle,
+              totalBillsCreated: sData.total_bills_created ?? 0,
+              upiId: sData.upi_id,
+              isActive: sData.is_active ?? true,
+              createdAt: sData.created_at,
+              updatedAt: sData.updated_at,
+            };
+          }
+        }
+
+        const bill: Bill = {
+          id: billData.id,
+          shopId: billData.shop_id,
+          billNumber: billData.bill_number || '#0001',
+          customerId: billData.customer_id,
+          customerName: billData.customer_name,
+          customerPhone: billData.customer_phone,
+          tableNumber: billData.table_number,
+          status: billData.status || 'completed',
+          subtotal: Number(billData.subtotal) || 0,
+          discountType: billData.discount_type,
+          discountValue: Number(billData.discount_value) || 0,
+          discountAmount: Number(billData.discount_amount) || 0,
+          gstRate: Number(billData.gst_rate) || 0,
+          gstAmount: Number(billData.gst_amount) || 0,
+          totalAmount: Number(billData.total_amount) || 0,
+          paidAmount: Number(billData.paid_amount) || 0,
+          pendingAmount: Number(billData.pending_amount) || 0,
+          cashAmount: billData.cash_amount ? Number(billData.cash_amount) : undefined,
+          gpayAmount: billData.gpay_amount ? Number(billData.gpay_amount) : undefined,
+          paymentMode: billData.payment_mode || 'Cash',
+          items,
+          createdAt: billData.created_at,
+          completedAt: billData.completed_at || billData.created_at,
+          createdByName: billData.created_by_name,
+          createdByRole: billData.created_by_role,
+          isEdited: billData.is_edited ?? false,
+          editedAt: billData.edited_at,
+          editedByName: billData.edited_by_name || null,
+          isCancelled: billData.is_cancelled ?? false,
+          cancellationReason: billData.cancellation_reason,
+        };
+
+        return { bill, shop: shopObj };
+      }
+    } catch (err) {
+      console.warn('getPublicBill remote fetch notice:', err);
+    }
+
+    // Local storage fallback if viewing on shop's own browser
+    try {
+      const activeShop = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
+      if (activeShop) {
+        const key = this.getStorageKey(activeShop.id);
+        const localBills = await storage.getObject<Bill[]>(key, []);
+        const found = localBills.find(
+          (b) =>
+            b.id === cleanId ||
+            b.billNumber === cleanId ||
+            b.billNumber?.replace(/[^a-zA-Z0-9_-]/g, '') === cleanId
+        );
+        if (found) {
+          return { bill: found, shop: activeShop };
+        }
+      }
+    } catch {}
+
+    return null;
   },
 
   async createBill(params: {

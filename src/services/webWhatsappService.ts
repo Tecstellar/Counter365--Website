@@ -10,8 +10,12 @@ export const webWhatsappService = {
     const rawCustName = ((bill as any).customerName || '').trim();
     const custName = rawCustName && rawCustName !== 'Not tracked' ? rawCustName : 'Valued Customer';
 
-    const rawBillId = bill.id || (bill.billNumber ? bill.billNumber.replace(/[^a-zA-Z0-9_-]/g, '') : 'latest');
-    const pdfUrl = `https://counter365.tecstellar.com/b/${rawBillId}`;
+    const rawBillId = bill.id || (bill.billNumber ? encodeURIComponent(bill.billNumber.replace(/#/g, '')) : 'latest');
+    const origin =
+      typeof window !== 'undefined' && window.location.origin
+        ? window.location.origin
+        : 'https://counter365.tecstellar.com';
+    const pdfUrl = `${origin}/b/${rawBillId}`;
 
     const cleanUpi = shopUpiId?.trim();
     const hasValidUpi = !!(cleanUpi && cleanUpi.includes('@') && !cleanUpi.toLowerCase().includes('example'));

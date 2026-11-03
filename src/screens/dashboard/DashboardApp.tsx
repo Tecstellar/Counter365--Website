@@ -3110,9 +3110,24 @@ Generated via Counter365 POS Cloud`;
                               background: isDeleted ? 'rgba(241, 245, 249, 0.5)' : undefined,
                             } as any}
                           >
-                            <span style={{ textDecoration: isDeleted ? 'line-through' : 'none', fontWeight: 600, fontSize: '13px' }}>
+                            <a
+                              href={`/b/${b.id || (b.billNumber ? encodeURIComponent(b.billNumber) : '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Click to view WhatsApp PDF receipt"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                textDecoration: isDeleted ? 'line-through' : 'underline',
+                                textUnderlineOffset: '2px',
+                                textDecorationColor: 'var(--ln)',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                color: 'var(--ink)',
+                                cursor: 'pointer',
+                              }}
+                            >
                               {bn(b.billNumber)}
-                            </span>
+                            </a>
                             <span>
                               <span style={{ textDecoration: isDeleted ? 'line-through' : 'none', fontWeight: 500 }}>
                                 {esc(b.customerName || 'Walk-in guest')}
@@ -6174,6 +6189,33 @@ Generated via Counter365 POS Cloud`;
                   <span>🖨️</span> Print Bill ({shop.printerPaperWidth || '80mm'})
                 </button>
               )}
+            </div>
+
+            {/* View PDF Receipt Link */}
+            <div style={{ marginBottom: '12px' }}>
+              <a
+                href={`/b/${savedBillSuccess.id || (savedBillSuccess.billNumber ? encodeURIComponent(savedBillSuccess.billNumber) : '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn sm"
+                style={{
+                  width: '100%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  background: 'var(--card)',
+                  border: '1px solid var(--ln)',
+                  color: 'var(--ink)',
+                  textDecoration: 'none',
+                }}
+              >
+                <span>📄</span> View PDF Receipt
+              </a>
             </div>
 
             {/* Bottom Actions */}
