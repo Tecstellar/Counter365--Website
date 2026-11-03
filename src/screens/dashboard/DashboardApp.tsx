@@ -2310,31 +2310,28 @@ Generated via Counter365 POS Cloud`;
                   : `${subscriptionStatus?.billsRemaining ?? 100} bills left`}
               </span>
 
-              {/* Instant Refresh & Multi-Device Sync Button */}
+              {/* Instant Refresh Button */}
               <button
                 type="button"
                 className={`btn g sm refresh-sync-btn ${isRefreshing ? 'refresh-spinning' : ''}`}
                 onClick={() => refreshAllData(false)}
-                title="Refresh & Sync (Instant live sync with mobile)"
-                aria-label="Refresh and sync data with cloud"
+                title="Refresh Data"
+                aria-label="Refresh Data"
                 disabled={isRefreshing}
                 style={{
-                  display: 'inline-flex',
+                  padding: '6px 10px',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  fontWeight: 600,
+                  justifyContent: 'center',
                   cursor: isRefreshing ? 'wait' : 'pointer',
                 }}
               >
                 <RefreshCw
-                  className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`}
+                  className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}
                   style={{
                     color: isRefreshing ? '#ff5f00' : 'inherit',
                   }}
                 />
-                <span className="sync-btn-label">
-                  {isRefreshing ? 'Syncing...' : 'Sync'}
-                </span>
               </button>
 
               <button
