@@ -256,6 +256,8 @@ export const DashboardApp: React.FC = () => {
   const [editCustPhone, setEditCustPhone] = useState<string>('');
   const [editCustNotes, setEditCustNotes] = useState<string>('');
   const [editCustIsActive, setEditCustIsActive] = useState<boolean>(true);
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'active' | 'vip' | 'inactive'>('all');
+  const [selectedCustomerHistory, setSelectedCustomerHistory] = useState<CustomerRecord | null>(null);
 
   // Tea Shop / Café Standard Expense Presets
   const TEA_SHOP_EXPENSE_PRESETS = [
@@ -1454,6 +1456,27 @@ Generated via Counter365 Cloud POS`;
       showToast('Failed to update customer status.');
     }
     setCustomerActionMenuId(null);
+  };
+
+  // Toggle Customer VIP status
+  const handleToggleCustomerVip = async (customer: CustomerRecord) => {
+    const nextVip = !customer.isVip;
+    const updated: CustomerRecord = {
+      ...customer,
+      isVip: nextVip,
+      statusTag: nextVip ? 'MVP' : (customer.pendingBalance > 0 ? 'Pending' : 'Regular'),
+    };
+    try {
+      await contactService.saveCustomer(updated);
+      setCustomers((prev) => prev.map((c) => (c.id === customer.id ? updated : c)));
+      if (selectedCustomerHistory && selectedCustomerHistory.id === customer.id) {
+        setSelectedCustomerHistory(updated);
+      }
+      showToast(nextVip ? `⭐ ${customer.name} marked as VIP customer.` : `${customer.name} removed from VIP.`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update VIP status.');
+    }
   };
 
   // Save Edited Customer Details
@@ -4019,36 +4042,133 @@ Generated via Counter365 POS Cloud`;
                       </div>
                     </section>
 
-                    {/* Customer Search & Grid */}
-                    <input
-                      className="search"
-                      placeholder="Search customers by name or phone"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                    {/* Customer Search & Filter Samples Bar */}
+                    <div style={{ marginBottom: '16px' }}>
+                      <input
+                        className="search"
+                        placeholder="Search customers by name or phone..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{ marginBottom: '12px' }}
+                      />
+
+                      {/* 4 Sample Filters: All, Active, VIPs, Inactive */}
+                      {(() => {
+                        const allCount = customers.length;
+                        const activeCount = customers.filter((c) => c.isActive !== false).length;
+                        const vipCount = customers.filter(
+                          (c) => c.isVip || (c.notes && c.notes.includes('[VIP]')) || c.statusTag === 'MVP'
+                        ).length;
+                        const inactiveCount = customers.filter((c) => c.isActive === false).length;
+
+                        return (
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className={`cust-filter-pill ${customerFilter === 'all' ? 'active' : ''}`}
+                              onClick={() => setCustomerFilter('all')}
+                            >
+                              <span>All</span>
+                              <span style={{ opacity: 0.85, fontSize: '11.5px' }}>({allCount})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`cust-filter-pill ${customerFilter === 'active' ? 'active' : ''}`}
+                              onClick={() => setCustomerFilter('active')}
+                            >
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }} />
+                              <span>Active</span>
+                              <span style={{ opacity: 0.85, fontSize: '11.5px' }}>({activeCount})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`cust-filter-pill ${customerFilter === 'vip' ? 'active' : ''}`}
+                              onClick={() => setCustomerFilter('vip')}
+                            >
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>VIPs</span>
+                              <span style={{ opacity: 0.85, fontSize: '11.5px' }}>({vipCount})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`cust-filter-pill ${customerFilter === 'inactive' ? 'active' : ''}`}
+                              onClick={() => setCustomerFilter('inactive')}
+                            >
+                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ef4444' }} />
+                              <span>Inactive</span>
+                              <span style={{ opacity: 0.85, fontSize: '11.5px' }}>({inactiveCount})</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
 
                     <div className="cg">
                       {customers
                         .filter((c) => {
+                          const isInactive = c.isActive === false;
+                          const isVip = c.isVip || (c.notes && c.notes.includes('[VIP]')) || c.statusTag === 'MVP';
+
+                          if (customerFilter === 'active' && isInactive) return false;
+                          if (customerFilter === 'inactive' && !isInactive) return false;
+                          if (customerFilter === 'vip' && !isVip) return false;
+
                           const q = searchQuery.toLowerCase().trim();
                           return !q || c.name.toLowerCase().includes(q) || (c.phone || '').includes(q);
                         })
                         .map((c) => {
                           const isInactive = c.isActive === false;
+                          const isVip = c.isVip || (c.notes && c.notes.includes('[VIP]')) || c.statusTag === 'MVP';
                           const isMenuOpen = customerActionMenuId === c.id;
+
+                          // Compute customer spent & visits from real bills
+                          const custBills = bills.filter((b) => {
+                            if (b.status === 'deleted') return false;
+                            if (c.phone && b.customerPhone) {
+                              const cClean = c.phone.replace(/\D/g, '').slice(-10);
+                              const bClean = b.customerPhone.replace(/\D/g, '').slice(-10);
+                              if (cClean && bClean && cClean === bClean) return true;
+                            }
+                            if (c.id && b.customerId === c.id) return true;
+                            if (c.name && b.customerName && b.customerName.toLowerCase() === c.name.toLowerCase()) return true;
+                            return false;
+                          });
+                          const totalVisits = custBills.length || c.totalBills || 1;
+                          const totalSpend = custBills.length > 0
+                            ? custBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0)
+                            : (c.totalSpent || totalVisits * 240);
+                          const cleanPhone = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
 
                           return (
                             <div
                               key={c.id}
-                              className="card cc"
+                              className="card cc customer-card-interactive"
+                              onClick={() => setSelectedCustomerHistory(c)}
                               style={{
                                 position: 'relative',
                                 opacity: isInactive ? 0.72 : 1,
                                 filter: isInactive ? 'grayscale(0.35)' : undefined,
+                                border: isVip ? '1.5px solid rgba(234, 179, 8, 0.45)' : undefined,
+                                background: isVip ? 'linear-gradient(180deg, rgba(254, 243, 199, 0.25) 0%, var(--card) 70px)' : undefined,
                               }}
                             >
-                              {/* Top-Right Three-Dots Action Menu */}
-                              <div style={{ position: 'absolute', top: '14px', right: '14px', zIndex: 10 }}>
+                              {/* Top-Right Menu & Star Controls */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: '12px',
+                                  right: '12px',
+                                  zIndex: 10,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                }}
+                              >
+                                {/* 3-dots Menu Button */}
                                 <button
                                   type="button"
                                   className="cust-menu-btn"
@@ -4062,11 +4182,38 @@ Generated via Counter365 POS Cloud`;
                                   <MoreVertical className="w-4 h-4" />
                                 </button>
 
+                                {/* Star Icon Button below the 3 vertical bars */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleCustomerVip(c);
+                                  }}
+                                  style={{
+                                    background: isVip ? 'rgba(234, 179, 8, 0.22)' : 'rgba(0, 0, 0, 0.04)',
+                                    border: isVip ? '1px solid rgba(234, 179, 8, 0.5)' : '1px solid transparent',
+                                    borderRadius: '8px',
+                                    width: '28px',
+                                    height: '28px',
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    color: isVip ? '#eab308' : 'var(--mu)',
+                                  }}
+                                  title={isVip ? 'VIP Customer (Click to toggle)' : 'Mark as VIP'}
+                                >
+                                  <Star className={`w-3.5 h-3.5 ${isVip ? 'fill-amber-400 text-amber-500' : ''}`} />
+                                </button>
+
                                 {isMenuOpen && (
                                   <>
                                     <div
                                       style={{ position: 'fixed', inset: 0, zIndex: 90 }}
-                                      onClick={() => setCustomerActionMenuId(null)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCustomerActionMenuId(null);
+                                      }}
                                     />
                                     <div className="cust-dropdown" onClick={(e) => e.stopPropagation()}>
                                       <button
@@ -4082,6 +4229,15 @@ Generated via Counter365 POS Cloud`;
                                       >
                                         <span className="icon-edit" style={{ width: '13px', height: '13px' }} />
                                         <span>Edit Customer</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleCustomerVip(c)}
+                                        style={{ color: isVip ? '#a16207' : '#eab308' }}
+                                      >
+                                        <Star className={`w-3.5 h-3.5 ${isVip ? 'fill-amber-400 text-amber-500' : ''}`} />
+                                        <span>{isVip ? 'Remove VIP' : 'Mark as VIP'}</span>
                                       </button>
 
                                       <button
@@ -4106,11 +4262,36 @@ Generated via Counter365 POS Cloud`;
                                 )}
                               </div>
 
-                              <div className="row" style={{ paddingRight: '28px' }}>
-                                <div className="av">{(c.name || 'C')[0].toUpperCase()}</div>
+                              {/* Customer Header Info */}
+                              <div className="row" style={{ paddingRight: '36px' }}>
+                                <div
+                                  className="av"
+                                  style={{
+                                    background: isVip ? 'linear-gradient(135deg, #fef08a 0%, #facc15 100%)' : undefined,
+                                    color: isVip ? '#854d0e' : undefined,
+                                    border: isVip ? '1.5px solid #eab308' : undefined,
+                                  }}
+                                >
+                                  {(c.name || 'C')[0].toUpperCase()}
+                                </div>
                                 <div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                     <b style={{ fontWeight: 600 }}>{c.name}</b>
+                                    {isVip && (
+                                      <span
+                                        style={{
+                                          fontSize: '10px',
+                                          fontWeight: 700,
+                                          padding: '1px 6px',
+                                          borderRadius: '99px',
+                                          background: '#fef08a',
+                                          color: '#854d0e',
+                                          border: '1px solid #facc15',
+                                        }}
+                                      >
+                                        VIP
+                                      </span>
+                                    )}
                                     {isInactive && (
                                       <span
                                         style={{
@@ -4132,12 +4313,14 @@ Generated via Counter365 POS Cloud`;
                                   </small>
                                 </div>
                               </div>
+
+                              {/* Stats Summary Bar */}
                               <div className="mini">
                                 <span>
-                                  <b>{c.totalBills || 1}</b>Visits
+                                  <b>{totalVisits}</b>Visits
                                 </span>
                                 <span>
-                                  <b>{fm((c.totalBills || 1) * 240)}</b>Total spent
+                                  <b>{fm(totalSpend)}</b>Total spent
                                 </span>
                                 <span>
                                   <b
@@ -4149,6 +4332,81 @@ Generated via Counter365 POS Cloud`;
                                   </b>
                                   Due
                                 </span>
+                              </div>
+
+                              {/* Call & WhatsApp Quick Buttons */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  gap: '8px',
+                                  marginTop: '6px',
+                                  paddingTop: '10px',
+                                  borderTop: '1px solid var(--ln)',
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <a
+                                  href={cleanPhone ? `tel:${cleanPhone}` : undefined}
+                                  onClick={(e) => {
+                                    if (!cleanPhone) {
+                                      e.preventDefault();
+                                      showToast('No phone number registered.');
+                                    }
+                                  }}
+                                  className="btn sm"
+                                  style={{
+                                    flex: 1,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    padding: '7px 0',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    borderRadius: '8px',
+                                    background: 'var(--bsoft)',
+                                    color: 'var(--brand)',
+                                    border: '1px solid rgba(255, 95, 0, 0.2)',
+                                    textDecoration: 'none',
+                                    cursor: cleanPhone ? 'pointer' : 'not-allowed',
+                                  }}
+                                  title={cleanPhone ? `Call ${cleanPhone}` : 'No phone registered'}
+                                >
+                                  <Phone className="w-3.5 h-3.5" />
+                                  <span>Call</span>
+                                </a>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!cleanPhone) {
+                                      showToast('No phone number registered.');
+                                      return;
+                                    }
+                                    const text = encodeURIComponent(`Hello ${c.name}, greetings from ${shop?.name || 'Counter 365'}!`);
+                                    window.open(`https://wa.me/91${cleanPhone}?text=${text}`, '_blank');
+                                  }}
+                                  className="btn sm"
+                                  style={{
+                                    flex: 1,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '6px',
+                                    padding: '7px 0',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    borderRadius: '8px',
+                                    background: '#ecfdf5',
+                                    color: '#059669',
+                                    border: '1px solid rgba(5, 150, 105, 0.25)',
+                                    cursor: cleanPhone ? 'pointer' : 'not-allowed',
+                                  }}
+                                  title={cleanPhone ? `WhatsApp ${cleanPhone}` : 'No phone registered'}
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                  <span>WhatsApp</span>
+                                </button>
                               </div>
                             </div>
                           );
@@ -7422,6 +7680,485 @@ Generated via Counter365 POS Cloud`;
           </div>
         </div>
       )}
+
+      {/* Customer Profile & Comprehensive History Modal */}
+      {selectedCustomerHistory && (() => {
+        const c = selectedCustomerHistory;
+        const isVip = c.isVip || (c.notes && c.notes.includes('[VIP]')) || c.statusTag === 'MVP';
+        const isInactive = c.isActive === false;
+
+        // Match all customer bills
+        const customerBills = bills
+          .filter((b) => {
+            if (b.status === 'deleted') return false;
+            if (c.phone && b.customerPhone) {
+              const cClean = c.phone.replace(/\D/g, '').slice(-10);
+              const bClean = b.customerPhone.replace(/\D/g, '').slice(-10);
+              if (cClean && bClean && cClean === bClean) return true;
+            }
+            if (c.id && b.customerId === c.id) return true;
+            if (c.name && b.customerName && b.customerName.toLowerCase() === c.name.toLowerCase()) return true;
+            return false;
+          })
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+        const totalVisits = customerBills.length || c.totalBills || 1;
+        const totalSpent = customerBills.length > 0
+          ? customerBills.reduce((acc, b) => acc + (b.totalAmount || 0), 0)
+          : (c.totalSpent || totalVisits * 240);
+        const pendingDue = c.pendingBalance ?? customerBills.reduce((acc, b) => acc + (b.pendingAmount || 0), 0);
+        const avgOrderValue = totalVisits > 0 ? Math.round(totalSpent / totalVisits) : 0;
+        const cleanPhone = c.phone ? c.phone.replace(/\D/g, '').slice(-10) : '';
+
+        // Aggregate favorite dishes
+        const itemAgg: Record<string, { name: string; count: number; qty: number; spend: number }> = {};
+        customerBills.forEach((b) => {
+          (b.items || []).forEach((it) => {
+            const k = (it.itemName || 'Item').toLowerCase().trim();
+            if (!itemAgg[k]) {
+              itemAgg[k] = { name: it.itemName, count: 0, qty: 0, spend: 0 };
+            }
+            itemAgg[k].count += 1;
+            itemAgg[k].qty += it.quantity || 1;
+            itemAgg[k].spend += it.lineTotal || (it.quantity || 1) * (it.unitPrice || 0);
+          });
+        });
+        const favoriteDishes = Object.values(itemAgg)
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5);
+
+        return (
+          <div
+            className="modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setSelectedCustomerHistory(null);
+            }}
+            style={{ zIndex: 1100 }}
+          >
+            <div
+              className="closing-modal-card"
+              style={{
+                maxWidth: '680px',
+                width: '92%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                padding: '24px 28px',
+                borderRadius: '20px',
+                boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.25)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div
+                    style={{
+                      width: '54px',
+                      height: '54px',
+                      borderRadius: '50%',
+                      background: isVip ? 'linear-gradient(135deg, #fef08a 0%, #facc15 100%)' : 'var(--bsoft)',
+                      color: isVip ? '#854d0e' : 'var(--brand)',
+                      display: 'grid',
+                      placeItems: 'center',
+                      font: '700 24px var(--head)',
+                      border: isVip ? '2px solid #eab308' : '2px solid rgba(255, 95, 0, 0.2)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(c.name || 'C')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, font: '700 22px var(--head)', color: 'var(--ink)' }}>
+                        {c.name}
+                      </h3>
+                      {isVip && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '99px',
+                            background: '#fef08a',
+                            color: '#854d0e',
+                            border: '1px solid #facc15',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-600" /> VIP
+                        </span>
+                      )}
+                      {isInactive && (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '99px',
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                          }}
+                        >
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', color: 'var(--mu)', fontSize: '13px' }}>
+                      <Phone className="w-3.5 h-3.5 text-[#ff5f00]" />
+                      <b style={{ color: 'var(--ink)', fontFamily: 'monospace', letterSpacing: '0.3px' }}>
+                        {c.phone || 'No phone registered'}
+                      </b>
+                      {c.location && <span>• 📍 {c.location}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setSelectedCustomerHistory(null)}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: 'rgba(0,0,0,0.06)',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Action Buttons Row */}
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '22px' }}>
+                <a
+                  href={cleanPhone ? `tel:${cleanPhone}` : undefined}
+                  onClick={(e) => {
+                    if (!cleanPhone) {
+                      e.preventDefault();
+                      showToast('No phone number registered.');
+                    }
+                  }}
+                  className="btn sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: 'var(--bsoft)',
+                    color: 'var(--brand)',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    border: '1px solid rgba(255, 95, 0, 0.25)',
+                    cursor: cleanPhone ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  <Phone className="w-4 h-4" /> Call Customer
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!cleanPhone) {
+                      showToast('No phone number registered.');
+                      return;
+                    }
+                    const text = encodeURIComponent(`Hello ${c.name}, greetings from ${shop?.name || 'Counter 365'}!`);
+                    window.open(`https://wa.me/91${cleanPhone}?text=${text}`, '_blank');
+                  }}
+                  className="btn sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: '#ecfdf5',
+                    color: '#059669',
+                    fontWeight: 600,
+                    border: '1px solid rgba(5, 150, 105, 0.3)',
+                    cursor: cleanPhone ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  <MessageCircle className="w-4 h-4" /> WhatsApp
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleCustomerVip(c)}
+                  className="btn sm"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: isVip ? '#fef9c3' : 'var(--card)',
+                    color: isVip ? '#a16207' : 'var(--ink)',
+                    border: isVip ? '1px solid #facc15' : '1px solid var(--ln)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Star className={`w-4 h-4 ${isVip ? 'fill-amber-400 text-amber-500' : 'text-slate-400'}`} />
+                  {isVip ? 'VIP Customer' : 'Make VIP'}
+                </button>
+
+                {pendingDue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCustomerHistory(null);
+                      handleOpenCollectDueModal(c.name, c.phone || undefined, pendingDue, customerBills);
+                    }}
+                    className="btn sm"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '10px',
+                      background: '#ef4444',
+                      color: '#fff',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                      marginLeft: 'auto',
+                    }}
+                  >
+                    <Check className="w-4 h-4" /> Collect Due ({fm(pendingDue)})
+                  </button>
+                )}
+              </div>
+
+              {/* 4 Key Metrics Cards */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '24px',
+                }}
+              >
+                <div style={{ background: 'var(--card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--mu)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block' }}>
+                    Total Spend
+                  </span>
+                  <b style={{ fontSize: '18px', color: '#059669', font: '700 19px var(--head)', display: 'block', marginTop: '4px' }}>
+                    {fm(totalSpent)}
+                  </b>
+                </div>
+
+                <div style={{ background: 'var(--card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--mu)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block' }}>
+                    Total Visits
+                  </span>
+                  <b style={{ fontSize: '18px', color: 'var(--ink)', font: '700 19px var(--head)', display: 'block', marginTop: '4px' }}>
+                    {totalVisits} {totalVisits === 1 ? 'Visit' : 'Visits'}
+                  </b>
+                </div>
+
+                <div
+                  style={{
+                    background: pendingDue > 0 ? '#fef2f2' : 'var(--card)',
+                    padding: '14px 16px',
+                    borderRadius: '12px',
+                    border: pendingDue > 0 ? '1px solid #fecaca' : '1px solid var(--ln)',
+                  }}
+                >
+                  <span style={{ fontSize: '11.5px', color: pendingDue > 0 ? '#dc2626' : 'var(--mu)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block' }}>
+                    Pending Due
+                  </span>
+                  <b style={{ fontSize: '18px', color: pendingDue > 0 ? '#dc2626' : '#059669', font: '700 19px var(--head)', display: 'block', marginTop: '4px' }}>
+                    {pendingDue > 0 ? fm(pendingDue) : 'All Clear'}
+                  </b>
+                </div>
+
+                <div style={{ background: 'var(--card)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--ln)' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--mu)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block' }}>
+                    Average Bill
+                  </span>
+                  <b style={{ fontSize: '18px', color: 'var(--ink)', font: '700 19px var(--head)', display: 'block', marginTop: '4px' }}>
+                    {fm(avgOrderValue)}
+                  </b>
+                </div>
+              </div>
+
+              {/* Favorite Dishes Section */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <Coffee className="w-4 h-4 text-[#ff5f00]" />
+                  <b style={{ fontSize: '15px', color: 'var(--ink)' }}>Favorite Dishes & Most Ordered</b>
+                </div>
+
+                {favoriteDishes.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
+                    {favoriteDishes.map((dish, idx) => (
+                      <div
+                        key={dish.name}
+                        style={{
+                          background: 'var(--card)',
+                          borderRadius: '12px',
+                          padding: '12px 14px',
+                          border: '1px solid var(--ln)',
+                          position: 'relative',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span
+                            style={{
+                              fontSize: '10.5px',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: idx === 0 ? 'rgba(255, 95, 0, 0.15)' : 'rgba(0,0,0,0.06)',
+                              color: idx === 0 ? 'var(--brand)' : 'var(--mu)',
+                            }}
+                          >
+                            #{idx + 1} Favorite
+                          </span>
+                          <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--mu)' }}>
+                            {dish.count} {dish.count === 1 ? 'order' : 'orders'}
+                          </span>
+                        </div>
+                        <b style={{ fontSize: '13.5px', color: 'var(--ink)', display: 'block', marginTop: '4px' }}>
+                          {dish.name}
+                        </b>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: '6px', color: 'var(--mu)' }}>
+                          <span>Total Qty: <b style={{ color: 'var(--ink)' }}>{dish.qty}</b></span>
+                          <span style={{ color: '#059669', fontWeight: 600 }}>{fm(dish.spend)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '16px', background: 'var(--card)', borderRadius: '12px', border: '1px dashed var(--ln)', textAlign: 'center', color: 'var(--mu)', fontSize: '13px' }}>
+                    No dish breakdown yet for this customer.
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Bills History */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText className="w-4 h-4 text-[#ff5f00]" />
+                    <b style={{ fontSize: '15px', color: 'var(--ink)' }}>Recent Bills & Order History</b>
+                  </div>
+                  <span style={{ fontSize: '12.5px', color: 'var(--mu)', fontWeight: 600 }}>
+                    {customerBills.length} {customerBills.length === 1 ? 'Bill' : 'Bills'}
+                  </span>
+                </div>
+
+                {customerBills.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                    {customerBills.map((b) => {
+                      const isDue = (b.pendingAmount || 0) > 0;
+                      const dateStr = b.createdAt
+                        ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : 'Recent';
+
+                      return (
+                        <div
+                          key={b.id}
+                          style={{
+                            background: 'var(--card)',
+                            borderRadius: '12px',
+                            padding: '12px 14px',
+                            border: '1px solid var(--ln)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '12px',
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <b style={{ fontSize: '13.5px', color: 'var(--ink)' }}>{bn(b.billNumber)}</b>
+                              <span
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  padding: '1px 7px',
+                                  borderRadius: '99px',
+                                  background: isDue ? '#fef2f2' : '#ecfdf5',
+                                  color: isDue ? '#dc2626' : '#059669',
+                                }}
+                              >
+                                {isDue ? `Due ${fm(b.pendingAmount)}` : 'Paid'}
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--mu)' }}>• {b.paymentMode}</span>
+                            </div>
+                            <small style={{ color: 'var(--mu)', fontSize: '11.5px', marginTop: '2px', display: 'block' }}>
+                              {dateStr}
+                              {b.items && b.items.length > 0 && ` • ${b.items.map(i => `${i.itemName} x${i.quantity}`).slice(0, 3).join(', ')}${b.items.length > 3 ? '...' : ''}`}
+                            </small>
+                          </div>
+
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <b style={{ fontSize: '15px', color: 'var(--ink)', display: 'block' }}>{fm(b.totalAmount)}</b>
+                            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (shop) webPrinterService.printReceipt(b, shop, shop.printerPaperWidth || '80mm');
+                                }}
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  borderRadius: '6px',
+                                  background: 'var(--bsoft)',
+                                  color: 'var(--brand)',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                }}
+                                title="Print Receipt"
+                              >
+                                🖨️ Print
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  webWhatsappService.shareCustomerBill(b, shop?.name || 'Counter 365', shop?.upiId, shop?.phone, b.customerPhone || c.phone);
+                                }}
+                                style={{
+                                  padding: '3px 8px',
+                                  fontSize: '11px',
+                                  borderRadius: '6px',
+                                  background: '#ecfdf5',
+                                  color: '#059669',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                }}
+                                title="WhatsApp Receipt"
+                              >
+                                💬 WA
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '16px', background: 'var(--card)', borderRadius: '12px', border: '1px dashed var(--ln)', textAlign: 'center', color: 'var(--mu)', fontSize: '13px' }}>
+                    No recorded bills found for this customer.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Floating Action Toast */}
       <div className={`toast ${toastMsg ? 'show' : ''}`} role="status">
