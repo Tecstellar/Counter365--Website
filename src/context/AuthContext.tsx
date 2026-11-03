@@ -10,6 +10,7 @@ interface AuthContextType {
   member: ShopMember | null;
   currentMember: ShopMember | null;
   currentShop: Shop | null;
+  setCurrentShop: (shop: Shop | null) => void;
   currentRole: UserRole;
   isLoading: boolean;
   can: (permission: PermissionKey) => boolean;
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   member: null,
   currentMember: null,
   currentShop: null,
+  setCurrentShop: () => {},
   currentRole: 'Owner',
   isLoading: true,
   can: () => false,
@@ -253,6 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         member,
         currentMember: member,
         currentShop,
+        setCurrentShop,
         currentRole,
         isLoading,
         can,

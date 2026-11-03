@@ -12,6 +12,7 @@ interface ShopContextType {
   subscription: SubscriptionRecord | null;
   subscriptionStatus: SubscriptionStatusInfo | null;
   isLoading: boolean;
+  setShopDirect: (newShop: Shop | null) => void;
   updateShop: (updated: Partial<Shop>) => Promise<Shop>;
   uploadLogo: (file: File | Blob) => Promise<string>;
   registerNewShop: (params: {
@@ -44,6 +45,7 @@ const ShopContext = createContext<ShopContextType>({
   subscription: null,
   subscriptionStatus: null,
   isLoading: true,
+  setShopDirect: () => {},
   updateShop: async () => ({} as any),
   uploadLogo: async () => '',
   registerNewShop: async () => ({} as any),
@@ -52,11 +54,33 @@ const ShopContext = createContext<ShopContextType>({
 });
 
 export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile } = useAuth();
-  const [shop, setShop] = useState<Shop | null>(null);
+  const { profile, currentShop, setCurrentShop } = useAuth();
+  const [shop, setShop] = useState<Shop | null>(() => currentShop);
   const [subscription, setSubscription] = useState<SubscriptionRecord | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatusInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Sync immediately when currentShop from AuthContext changes
+  useEffect(() => {
+    if (currentShop && currentShop.id && currentShop.id !== shop?.id) {
+      setShop(currentShop);
+      setIsLoading(false);
+    } else if (currentShop === null && profile === null) {
+      setShop(null);
+    }
+  }, [currentShop, profile]);
+
+  const setShopDirect = (newShop: Shop | null) => {
+    setShop(newShop);
+    setIsLoading(false);
+    if (newShop) {
+      storage.setObject(LOCAL_SHOP_KEY, newShop);
+      if (setCurrentShop) setCurrentShop(newShop);
+    } else {
+      storage.removeItem(LOCAL_SHOP_KEY);
+      if (setCurrentShop) setCurrentShop(null);
+    }
+  };
 
   const refreshSubscription = async () => {
     if (!shop?.id) return;
@@ -75,34 +99,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    let unsubscribeRealtime: (() => void) | null = null;
-
     async function loadShop() {
       try {
         const storedShop = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
         if (storedShop) {
           setShop(storedShop);
-
-          // 1. Fetch fresh authoritative shop data from Supabase to sync with mobile
-          shopService.getShop(storedShop.id).then((remoteShop) => {
-            if (remoteShop) {
-              setShop(remoteShop);
-            }
-          });
-
-          // 2. Real-time subscription to postgres changes for live 100% sync
-          unsubscribeRealtime = shopService.subscribeToShopChanges(storedShop.id, (fresh) => {
-            setShop(fresh);
-          });
-
-          const totalCreated = await billingService.getTotalBillsCreated(storedShop.id);
-          const { subscription: sub, statusInfo } = await subscriptionService.getShopSubscription(
-            storedShop.id,
-            null,
-            totalCreated
-          );
-          setSubscription(sub);
-          setSubscriptionStatus(statusInfo);
+          if (setCurrentShop) setCurrentShop(storedShop);
+        } else if (currentShop) {
+          setShop(currentShop);
         }
       } catch (err) {
         console.warn('loadShop notice:', err);
@@ -111,13 +115,46 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     loadShop();
+  }, [profile?.id]);
+
+  // Real-time synchronization and subscription update when shop.id is active
+  useEffect(() => {
+    if (!shop?.id) return;
+    let isSubscribed = true;
+
+    // 1. Fetch fresh authoritative shop data from Supabase to sync with mobile
+    shopService.getShop(shop.id).then((remoteShop) => {
+      if (remoteShop && isSubscribed) {
+        setShop(remoteShop);
+        if (setCurrentShop) setCurrentShop(remoteShop);
+      }
+    });
+
+    // 2. Fetch subscription status
+    billingService.getTotalBillsCreated(shop.id).then((totalCreated) => {
+      if (isSubscribed) {
+        subscriptionService.getShopSubscription(shop.id, subscription, totalCreated).then(({ subscription: sub, statusInfo }) => {
+          if (isSubscribed) {
+            setSubscription(sub);
+            setSubscriptionStatus(statusInfo);
+          }
+        });
+      }
+    });
+
+    // 3. Real-time subscription to postgres changes for live 100% sync
+    const unsubscribeRealtime = shopService.subscribeToShopChanges(shop.id, (fresh) => {
+      if (isSubscribed) {
+        setShop(fresh);
+        if (setCurrentShop) setCurrentShop(fresh);
+      }
+    });
 
     return () => {
-      if (unsubscribeRealtime) {
-        unsubscribeRealtime();
-      }
+      isSubscribed = false;
+      if (unsubscribeRealtime) unsubscribeRealtime();
     };
-  }, [profile?.id]);
+  }, [shop?.id]);
 
   const uploadLogo = async (file: File | Blob): Promise<string> => {
     if (!shop) throw new Error('No active shop found');
@@ -180,6 +217,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         subscription,
         subscriptionStatus,
         isLoading,
+        setShopDirect,
         updateShop,
         uploadLogo,
         registerNewShop,

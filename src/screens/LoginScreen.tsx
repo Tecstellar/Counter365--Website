@@ -10,7 +10,7 @@ export const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { sendOtp, verifyOtp, setSessionDirect, profile } = useAuth();
-  const { shop, refreshSubscription } = useShop();
+  const { shop, setShopDirect, refreshSubscription } = useShop();
 
   // Redirect if already logged in with active shop
   useEffect(() => {
@@ -87,6 +87,7 @@ export const LoginScreen: React.FC = () => {
         setMsg('Mobile pairing confirmed! Logging you in…');
         setIsError(false);
         await setSessionDirect(approvalData.profile, approvalData.shop, approvalData.member);
+        setShopDirect(approvalData.shop);
         await refreshSubscription();
         setIsLoading(false);
         navigate('/dashboard', { replace: true });
@@ -162,9 +163,10 @@ export const LoginScreen: React.FC = () => {
 
     if (res.success) {
       if (res.isExistingShop && res.shop) {
+        setShopDirect(res.shop);
         setMsg('Verified! Opening your dashboard…');
         await refreshSubscription();
-        setTimeout(() => navigate('/dashboard', { replace: true }), 400);
+        setTimeout(() => navigate('/dashboard', { replace: true }), 300);
       } else {
         setIsUnregisteredNumber(true);
         setMsg('Number verified, but not registered with any shop yet.');

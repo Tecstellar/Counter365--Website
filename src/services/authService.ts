@@ -90,63 +90,113 @@ export const authService = {
       let memberId = generateUUID();
       let memberOverrides: any = undefined;
 
-      // Staff membership check first
+      // 2A. Priority 1: Check Staff Membership (by phone OR user_id)
       try {
-        const { data: staffList } = await (supabase.from('shop_members') as any)
+        const { data: memberList, error: staffErr } = await (supabase.from('shop_members') as any)
           .select('*, shops(*)')
-          .eq('user_id', profile.id)
-          .eq('is_active', true)
+          .or(`phone.eq.${cleanPhone},user_id.eq.${profile.id}`)
           .neq('role', 'Owner')
           .order('created_at', { ascending: false })
           .limit(1);
 
-        if (staffList && staffList.length > 0 && staffList[0].shops && !staffList[0].shops.name?.startsWith('[Deleted]')) {
-          shopData = staffList[0].shops;
-          memberRole = (staffList[0].role as UserRole) || 'Biller';
-          memberId = staffList[0].id;
-          memberOverrides = staffList[0].permissions_override;
+        const activeMemberRow = memberList && memberList.length > 0 ? memberList[0] : null;
+
+        if (activeMemberRow) {
+          if (activeMemberRow.is_active === false) {
+            return {
+              success: false,
+              error: 'Your staff account has been deactivated. Please contact the shop owner.',
+            };
+          }
+
+          let s = activeMemberRow.shops;
+          if (!s && activeMemberRow.shop_id) {
+            const { data: directShop } = await (supabase.from('shops') as any)
+              .select('*')
+              .eq('id', activeMemberRow.shop_id)
+              .maybeSingle();
+            s = directShop;
+          }
+
+          if (s && !s.name?.startsWith('[Deleted]') && !s.phone?.includes('_del_')) {
+            shopData = s;
+            memberRole = (activeMemberRow.role as UserRole) || 'Supervisor';
+            memberId = activeMemberRow.id;
+            memberOverrides = activeMemberRow.permissions_override || {};
+
+            // Link user_id and phone in shop_members if missing or outdated
+            if (activeMemberRow.user_id !== profile.id || activeMemberRow.phone !== cleanPhone) {
+              try {
+                await (supabase.from('shop_members') as any)
+                  .update({ user_id: profile.id, phone: cleanPhone, updated_at: new Date().toISOString() })
+                  .eq('id', activeMemberRow.id);
+              } catch (linkErr) {
+                console.warn('Link staff member to profile notice:', linkErr);
+              }
+            }
+
+            // Sync profile full_name if staff member has an established full_name
+            if (activeMemberRow.full_name && (!profile.fullName || profile.fullName === 'Shop Owner' || profile.fullName === 'Staff Member' || profile.fullName === 'Demo Reviewer')) {
+              profile.fullName = activeMemberRow.full_name;
+              await storage.setObject(LOCAL_PROFILE_KEY, profile);
+              try {
+                await (supabase.from('profiles') as any)
+                  .update({ full_name: activeMemberRow.full_name, updated_at: new Date().toISOString() })
+                  .eq('id', profile.id);
+              } catch (pUpErr) {
+                console.warn('Update profile name notice:', pUpErr);
+              }
+            }
+          }
         }
       } catch (sErr) {
         console.warn('Supabase staff membership check notice:', sErr);
       }
 
-      // If not staff, check Owner shops table by phone
+      // 2B. Priority 2: Check Owner shops table by phone
       if (!shopData) {
-        const { data: shopList } = await (supabase.from('shops') as any)
-          .select('*')
-          .eq('phone', cleanPhone)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        shopData = (shopList && shopList.length > 0 && !shopList[0].phone?.includes('_del_') && !shopList[0].name?.startsWith('[Deleted]')) ? shopList[0] : null;
-      }
-
-      if (!shopData) {
-        // Check by direct phone on shop_members
         try {
-          const { data: memberByPhone } = await (supabase.from('shop_members') as any)
-            .select('*, shops(*)')
+          const { data: shopList } = await (supabase.from('shops') as any)
+            .select('*')
             .eq('phone', cleanPhone)
             .order('created_at', { ascending: false })
             .limit(1);
+          shopData = (shopList && shopList.length > 0 && !shopList[0].phone?.includes('_del_') && !shopList[0].name?.startsWith('[Deleted]')) ? shopList[0] : null;
+          if (shopData) {
+            memberRole = 'Owner';
+          }
+        } catch (oErr) {
+          console.warn('Supabase owner shops check notice:', oErr);
+        }
+      }
 
-          const activeMemberRow = memberByPhone && memberByPhone.length > 0 ? memberByPhone[0] : null;
+      // 2C. Priority 3: Check shop_members where role = 'Owner'
+      if (!shopData) {
+        try {
+          const { data: ownerMemberList } = await (supabase.from('shop_members') as any)
+            .select('*, shops(*)')
+            .or(`phone.eq.${cleanPhone},user_id.eq.${profile.id}`)
+            .eq('role', 'Owner')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-          if (activeMemberRow) {
-            if (activeMemberRow.is_active === false) {
-              return {
-                success: false,
-                error: 'Your staff account has been deactivated. Please contact the shop owner.',
-              };
+          if (ownerMemberList && ownerMemberList.length > 0) {
+            let s = ownerMemberList[0].shops;
+            if (!s && ownerMemberList[0].shop_id) {
+              const { data: directShop } = await (supabase.from('shops') as any)
+                .select('*')
+                .eq('id', ownerMemberList[0].shop_id)
+                .maybeSingle();
+              s = directShop;
             }
-            if (activeMemberRow.shops) {
-              shopData = activeMemberRow.shops;
-              memberRole = (activeMemberRow.role as UserRole) || 'Biller';
-              memberId = activeMemberRow.id;
-              memberOverrides = activeMemberRow.permissions_override;
+            if (s && !s.name?.startsWith('[Deleted]') && !s.phone?.includes('_del_')) {
+              shopData = s;
+              memberRole = 'Owner';
+              memberId = ownerMemberList[0].id;
             }
           }
-        } catch (mErr) {
-          console.warn('Member check by phone notice:', mErr);
+        } catch (omErr) {
+          console.warn('Supabase owner member list check notice:', omErr);
         }
       }
 
@@ -173,10 +223,21 @@ export const authService = {
           roundOffEnabled: shopData.round_off_enabled ?? true,
           dailyBackupEnabled: shopData.daily_backup_enabled ?? true,
           printerEnabled: shopData.printer_enabled ?? false,
+          printerPaperWidth: shopData.printer_paper_width || '80mm',
           printerName: shopData.printer_name,
+          printerUrl: shopData.printer_url,
+          printerConnectionType: shopData.printer_connection_type,
+          tableManagementEnabled: shopData.table_management_enabled ?? false,
+          tableCount: shopData.table_count ?? 4,
+          maxStaffLimit: shopData.max_staff_limit ?? 5,
+          ownerName: shopData.owner_name,
+          invoicePrefix: shopData.invoice_prefix,
+          invoiceResetCycle: shopData.invoice_reset_cycle || 'monthly',
           upiId: shopData.upi_id,
           totalBillsCreated: shopData.total_bills_created ?? 0,
+          isActive: shopData.is_active ?? true,
           createdAt: shopData.created_at,
+          updatedAt: shopData.updated_at,
         };
 
         const member: ShopMember = {
