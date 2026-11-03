@@ -7,7 +7,7 @@ import { menuService } from '../../services/menuService';
 import { expenseService } from '../../services/expenseService';
 import { contactService } from '../../services/contactService';
 import { shopService, DEFAULT_ROLE_PERMS, MODULE_PERMISSIONS } from '../../services/shopService';
-import { Bill, MenuItem, MenuCategory, ExpenseRecord, CustomerRecord, VendorRecord, PaymentMethod, ShopMember, UserRole, PermissionKey, SubscriptionPlanId } from '../../types/models';
+import { Bill, Shop, MenuItem, MenuCategory, ExpenseRecord, CustomerRecord, VendorRecord, PaymentMethod, ShopMember, UserRole, PermissionKey, SubscriptionPlanId } from '../../types/models';
 import { subscriptionService, PRO_PLANS } from '../../services/subscriptionService';
 import { generateUUID } from '../../lib/uuid';
 import { webPrinterService } from '../../services/webPrinterService';
@@ -871,13 +871,15 @@ Generated via Counter365 Cloud POS`;
           );
         }
 
-        // Thermal Printer Auto-Print (if printerEnabled is ON)
-        if (shop?.printerEnabled) {
-          try {
-            webPrinterService.printReceipt(savedBill, shop, shop.printerPaperWidth);
-          } catch (printErr) {
-            console.warn('Thermal receipt auto-print notice:', printErr);
-          }
+        // Instantly trigger Thermal Printer print
+        try {
+          webPrinterService.printReceipt(
+            savedBill,
+            shop || ({ name: 'Counter 365', phone: '', address: '' } as Shop),
+            shop?.printerPaperWidth || '80mm'
+          );
+        } catch (printErr) {
+          console.warn('Instant thermal receipt print notice:', printErr);
         }
 
         // Reset cart, table, and checkout states
@@ -890,12 +892,9 @@ Generated via Counter365 Cloud POS`;
         setSplitGPayAmount('');
         setPartialPaidAmount('');
 
-        // Trigger Animated Green Paper Receipt
+        // Trigger Animated Green Paper Receipt Modal (stays visible until closed)
         setSavedBillSuccess(savedBill);
         if (successTimerRef.current) clearTimeout(successTimerRef.current);
-        successTimerRef.current = setTimeout(() => {
-          setSavedBillSuccess(null);
-        }, 3000);
       }
     } catch (err: any) {
       showToast(err?.message || 'Error saving bill.');
@@ -5585,7 +5584,12 @@ Generated via Counter365 POS Cloud`;
                 ) : (
                   /* USERS & STAFF TAB */
                   <div>
-                    <UsersStaffSection shopId={shop?.id} />
+                    <UsersStaffSection
+                      shopId={shop?.id}
+                      shop={shop}
+                      members={staffList}
+                      onMembersChange={setStaffList}
+                    />
                   </div>
                 )}
               </div>
@@ -6058,9 +6062,6 @@ Generated via Counter365 POS Cloud`;
             className="success-slip-card"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 3-Second Countdown Progress Bar */}
-            <div className="success-countdown-bar" />
-
             {/* Success Header */}
             <div style={{ textAlign: 'center', marginBottom: '16px', marginTop: '6px' }}>
               <div
@@ -6090,6 +6091,7 @@ Generated via Counter365 POS Cloud`;
 
             {/* Slip Details Box */}
             <div
+              className="success-slip-box"
               style={{
                 background: 'var(--card)',
                 borderRadius: '14px',
@@ -6220,8 +6222,8 @@ Generated via Counter365 POS Cloud`;
 
             {/* Bottom Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11.5px', color: 'var(--ok)', fontWeight: 600 }}>
-                ⚡ Auto-closing in 3s...
+              <span style={{ fontSize: '12px', color: 'var(--ok)', fontWeight: 600 }}>
+                ✓ Synced & Ready
               </span>
               <button
                 type="button"
@@ -6230,9 +6232,9 @@ Generated via Counter365 POS Cloud`;
                   if (successTimerRef.current) clearTimeout(successTimerRef.current);
                   setSavedBillSuccess(null);
                 }}
-                style={{ padding: '6px 14px', fontSize: '12px' }}
+                style={{ padding: '8px 18px', fontSize: '13px', fontWeight: 600 }}
               >
-                Close slip
+                Close slip ✕
               </button>
             </div>
           </div>

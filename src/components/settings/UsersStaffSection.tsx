@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   staffService,
   ShopMember,
@@ -12,23 +12,34 @@ import { useShop } from '../../context/ShopContext';
 import { storage } from '../../lib/storage';
 import { LOCAL_SHOP_KEY } from '../../services/authService';
 import { Shop } from '../../types/models';
-import { Crown, Users } from 'lucide-react';
+import { Crown, Users, Plus, Shield, Check, X, Edit, Trash2 } from 'lucide-react';
 
-export const UsersStaffSection: React.FC<{
+export interface UsersStaffSectionProps {
   shopId?: string;
+  shop?: Shop | null;
+  members?: ShopMember[];
+  onMembersChange?: (members: ShopMember[]) => void;
   onCountChange?: (count: number) => void;
-}> = ({ shopId: propShopId, onCountChange }) => {
+}
+
+export const UsersStaffSection: React.FC<UsersStaffSectionProps> = ({
+  shopId: propShopId,
+  shop: propShop,
+  members: propMembers,
+  onMembersChange,
+  onCountChange,
+}) => {
   const { currentShop, currentMember, currentRole, profile } = useAuth();
   const { shop: contextShop } = useShop();
 
-  const [activeShopId, setActiveShopId] = useState<string>(
-    propShopId || contextShop?.id || currentShop?.id || ''
-  );
+  const activeShop = propShop || contextShop || currentShop;
+  const activeShopId = propShopId || activeShop?.id || '';
+
   const isOwner = currentRole === 'Owner' || currentMember?.role === 'Owner';
 
-  const [members, setMembers] = useState<ShopMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [members, setMembers] = useState<ShopMember[]>(propMembers || []);
+  const [loading, setLoading] = useState<boolean>(!propMembers || propMembers.length === 0);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
   // Add Member Modal State
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -46,67 +57,66 @@ export const UsersStaffSection: React.FC<{
   const [editOverrides, setEditOverrides] = useState<Partial<Record<PermissionKey, boolean>>>({});
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // Stable callback ref to prevent infinite re-render loops
+  // Stable callback refs
+  const onMembersChangeRef = useRef(onMembersChange);
+  onMembersChangeRef.current = onMembersChange;
   const onCountChangeRef = useRef(onCountChange);
   onCountChangeRef.current = onCountChange;
 
-  // Resolve shopId if missing
+  // Sync with propMembers if parent updates them
   useEffect(() => {
-    async function resolveShopId() {
-      if (propShopId) {
-        setActiveShopId(propShopId);
-        return;
-      }
-      if (contextShop?.id) {
-        setActiveShopId(contextShop.id);
-        return;
-      }
-      if (currentShop?.id) {
-        setActiveShopId(currentShop.id);
-        return;
-      }
-      const stored = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
-      if (stored?.id) {
-        setActiveShopId(stored.id);
-      }
+    if (propMembers && propMembers.length >= 0) {
+      setMembers(propMembers);
+      setLoading(false);
+      onCountChangeRef.current?.(propMembers.length);
     }
-    resolveShopId();
-  }, [propShopId, contextShop?.id, currentShop?.id]);
+  }, [propMembers]);
 
-  // Fetch members directly from Supabase
-  const loadMembers = useCallback(async () => {
+  // Initial and refresh load
+  const reloadStaff = async () => {
     let targetShopId = activeShopId;
     if (!targetShopId) {
-      const stored = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
-      targetShopId = stored?.id || '';
-      if (targetShopId) setActiveShopId(targetShopId);
+      try {
+        const stored = await storage.getObject<Shop | null>(LOCAL_SHOP_KEY, null);
+        targetShopId = stored?.id || '';
+      } catch {}
     }
-    if (!targetShopId) return;
+    if (!targetShopId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
       setErrorMsg('');
       const data = await staffService.getShopMembers(targetShopId);
       setMembers(data);
+      onMembersChangeRef.current?.(data);
       onCountChangeRef.current?.(data.length);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to load staff list.');
+      console.warn('reloadStaff error:', err);
+      setErrorMsg(err?.message || 'Failed to load staff list.');
     } finally {
       setLoading(false);
     }
-  }, [activeShopId]);
+  };
 
   useEffect(() => {
-    if (!activeShopId) return;
-    loadMembers();
+    if (!propMembers || propMembers.length === 0) {
+      reloadStaff();
+    }
+  }, [activeShopId]);
 
-    // Subscribe to live Supabase updates
+  // Real-time Supabase subscription
+  useEffect(() => {
+    if (!activeShopId) return;
     const unsubscribe = staffService.subscribeToShopMembers(activeShopId, () => {
-      loadMembers();
+      reloadStaff();
     });
     return () => unsubscribe();
-  }, [loadMembers, activeShopId]);
+  }, [activeShopId]);
 
+  // Handle Add Member
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) {
@@ -121,20 +131,21 @@ export const UsersStaffSection: React.FC<{
 
     try {
       setIsSubmitting(true);
-      await staffService.addMember(activeShopId, newName, newRole, cleanPhone, newOverrides);
+      await staffService.addMember(activeShopId, newName.trim(), newRole, cleanPhone, newOverrides);
       setIsAddOpen(false);
       setNewName('');
       setNewPhone('');
       setNewRole('Supervisor');
       setNewOverrides({ ...ROLE_DEFAULT_PERMISSIONS.Supervisor });
-      await loadMembers();
+      await reloadStaff();
     } catch (err: any) {
-      alert(err.message || 'Failed to add staff member.');
+      alert(err?.message || 'Failed to add staff member.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Handle Toggle Active
   const handleToggleActive = async (member: ShopMember) => {
     if (!isOwner || member.role === 'Owner') return;
     const nextState = !member.isActive;
@@ -146,42 +157,44 @@ export const UsersStaffSection: React.FC<{
 
     try {
       await staffService.toggleMemberActive(activeShopId, member.id, nextState);
-      await loadMembers();
+      await reloadStaff();
     } catch (err: any) {
       alert('Failed to update member status.');
     }
   };
 
+  // Handle Delete Member
   const handleDeleteMember = async (member: ShopMember) => {
     if (!isOwner || member.role === 'Owner') return;
     if (!confirm(`Are you sure you want to permanently remove staff member ${member.fullName}?`)) return;
     try {
       await staffService.deleteMember(activeShopId, member.id);
-      await loadMembers();
+      await reloadStaff();
     } catch (err: any) {
       alert('Failed to delete member.');
     }
   };
 
+  // Open Edit Permissions Modal
   const handleOpenEdit = (m: ShopMember) => {
     setSelectedMember(m);
-    setEditRole(m.role);
-    const base = ROLE_DEFAULT_PERMISSIONS[m.role] || ROLE_DEFAULT_PERMISSIONS.Biller;
+    setEditRole(m.role || 'Supervisor');
+    const safeRole = m.role || 'Supervisor';
+    const base = ROLE_DEFAULT_PERMISSIONS[safeRole] || ROLE_DEFAULT_PERMISSIONS.Biller;
     setEditOverrides({
       ...base,
       ...(m.overrides || {}),
     });
   };
 
+  // Save Edit Permissions
   const handleSaveEdit = async () => {
     if (!selectedMember) return;
     try {
       setIsSavingEdit(true);
-      // Update role if changed
       if (editRole !== selectedMember.role) {
         await staffService.updateRole(activeShopId, selectedMember.id, editRole);
       }
-      // Update each permission override
       for (const p of MODULE_PERMISSIONS) {
         const val = !!editOverrides[p.key];
         await staffService.setPermissionOverride(
@@ -193,41 +206,41 @@ export const UsersStaffSection: React.FC<{
         );
       }
       setSelectedMember(null);
-      await loadMembers();
+      await reloadStaff();
     } catch (err: any) {
-      alert('Failed to save permissions: ' + err.message);
+      alert('Failed to save permissions: ' + err?.message);
     } finally {
       setIsSavingEdit(false);
     }
   };
 
-  const activeShopObj = contextShop || currentShop;
-  const staffOnly = members.filter((m) => m.role !== 'Owner');
+  const staffOnly = members.filter((m) => m && m.role !== 'Owner');
 
   return (
-    <div>
+    <div style={{ paddingBottom: '32px' }}>
       {/* 1. Primary Owner Account Card (Master ID Owner) */}
-      <div className="profile-header-card" style={{ marginBottom: '20px' }}>
+      <div className="profile-header-card" style={{ marginBottom: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div
             style={{
               width: '54px',
               height: '54px',
               borderRadius: '50%',
-              background: 'var(--brand)',
+              background: 'linear-gradient(135deg, #FF5F00 0%, #FF8A00 100%)',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(255, 95, 0, 0.25)',
             }}
           >
             <Crown className="w-6 h-6 text-white" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <b style={{ fontSize: '18px', color: 'var(--ink)' }}>
-                {activeShopObj?.ownerName || profile?.fullName || activeShopObj?.name || 'Shop Owner'}
+                {activeShop?.ownerName || profile?.fullName || activeShop?.name || 'Shop Owner'}
               </b>
               <span
                 style={{
@@ -254,8 +267,8 @@ export const UsersStaffSection: React.FC<{
                 Active
               </span>
             </div>
-            <small style={{ color: 'var(--mu)', fontSize: '12.5px', display: 'block', marginTop: '2px' }}>
-              +91 {activeShopObj?.phone || profile?.phone || 'N/A'} · Full access across all modules & settings
+            <small style={{ color: 'var(--mu)', fontSize: '12.5px', display: 'block', marginTop: '3px' }}>
+              +91 {activeShop?.phone || profile?.phone || '98765 43210'} · Full Administrator access across all 8 modules & hardware
             </small>
           </div>
         </div>
@@ -291,14 +304,14 @@ export const UsersStaffSection: React.FC<{
               setIsAddOpen(true);
             }}
             style={{
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
               padding: '8px 18px',
               borderRadius: '10px',
             }}
           >
-            <span>+</span>
+            <Plus className="w-4 h-4" />
             <span>Add user</span>
           </button>
         )}
@@ -307,12 +320,13 @@ export const UsersStaffSection: React.FC<{
       {errorMsg && (
         <div
           style={{
-            padding: '12px',
+            padding: '12px 16px',
             background: 'rgba(239, 68, 68, 0.1)',
             color: '#ef4444',
             borderRadius: '10px',
             fontSize: '13px',
             marginBottom: '16px',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
           }}
         >
           {errorMsg}
@@ -322,7 +336,7 @@ export const UsersStaffSection: React.FC<{
       {/* 3. Staff Members List / Grid */}
       {loading ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--mu)' }}>
-          Loading staff members from database...
+          Loading staff members from cloud database...
         </div>
       ) : staffOnly.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
@@ -361,7 +375,8 @@ export const UsersStaffSection: React.FC<{
         >
           {staffOnly.map((m) => {
             const overrides = m.overrides || {};
-            const basePerms = ROLE_DEFAULT_PERMISSIONS[m.role] || ROLE_DEFAULT_PERMISSIONS.Biller;
+            const safeRole: UserRole = m.role || 'Biller';
+            const basePerms = ROLE_DEFAULT_PERMISSIONS[safeRole] || ROLE_DEFAULT_PERMISSIONS.Biller;
             const allowedCount = MODULE_PERMISSIONS.filter((p) =>
               overrides[p.key] !== undefined ? overrides[p.key] : basePerms[p.key]
             ).length;
@@ -392,11 +407,11 @@ export const UsersStaffSection: React.FC<{
                         fontSize: '16px',
                       }}
                     >
-                      {(m.fullName || 'S')[0].toUpperCase()}
+                      {(m.fullName || 'S')[0]?.toUpperCase() || 'S'}
                     </div>
                     <div>
                       <b style={{ fontSize: '15px', color: 'var(--ink)', display: 'block' }}>
-                        {m.fullName}
+                        {m.fullName || 'Staff Member'}
                       </b>
                       <small style={{ color: 'var(--mu)', fontSize: '12px' }}>
                         +91 {m.phone || 'N/A'}
@@ -417,7 +432,7 @@ export const UsersStaffSection: React.FC<{
                         border: '1px solid var(--ln)',
                       }}
                     >
-                      {m.role}
+                      {m.role || 'Biller'}
                     </span>
                     <span
                       style={{
@@ -475,7 +490,7 @@ export const UsersStaffSection: React.FC<{
                         padding: '5px 10px',
                       }}
                     >
-                      <span className="icon-edit" style={{ width: '13px', height: '13px' }} />
+                      <Edit className="w-3.5 h-3.5" />
                       <span>Edit</span>
                     </button>
                   )}
@@ -512,10 +527,7 @@ export const UsersStaffSection: React.FC<{
                         padding: '5px 8px',
                       }}
                     >
-                      <span
-                        className="icon-delete"
-                        style={{ width: '13px', height: '13px', color: '#ef4444' }}
-                      />
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
                       <span>Delete</span>
                     </button>
                   )}
@@ -560,7 +572,7 @@ export const UsersStaffSection: React.FC<{
               </button>
             </div>
 
-            <form onSubmit={handleAddMember} className="space-y-4">
+            <form onSubmit={handleAddMember}>
               <div style={{ marginBottom: '14px' }}>
                 <label
                   style={{
@@ -602,18 +614,17 @@ export const UsersStaffSection: React.FC<{
                     marginBottom: '5px',
                   }}
                 >
-                  10-Digit Mobile Number
+                  Mobile Number (Used for Staff Login)
                 </label>
-                <div style={{ display: 'flex' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <span
                     style={{
                       padding: '9px 12px',
-                      background: 'var(--bsoft)',
-                      color: 'var(--mu)',
-                      borderRadius: '10px 0 0 10px',
+                      background: 'var(--card)',
                       border: '1px solid var(--ln)',
-                      borderRight: 'none',
-                      fontSize: '13.5px',
+                      borderRadius: '10px',
+                      color: 'var(--mu)',
+                      fontSize: '14px',
                       fontWeight: 600,
                     }}
                   >
@@ -625,11 +636,11 @@ export const UsersStaffSection: React.FC<{
                     maxLength={10}
                     placeholder="9876543210"
                     value={newPhone}
-                    onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     style={{
                       flex: 1,
                       padding: '9px 12px',
-                      borderRadius: '0 10px 10px 0',
+                      borderRadius: '10px',
                       border: '1px solid var(--ln)',
                       background: 'var(--card)',
                       color: 'var(--ink)',
@@ -640,105 +651,88 @@ export const UsersStaffSection: React.FC<{
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '18px' }}>
                 <label
                   style={{
                     display: 'block',
                     fontSize: '12.5px',
                     fontWeight: 600,
                     color: 'var(--ink)',
-                    marginBottom: '5px',
+                    marginBottom: '8px',
                   }}
                 >
-                  Operational Role
+                  Staff Role
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                   <button
                     type="button"
                     onClick={() => {
                       setNewRole('Supervisor');
                       setNewOverrides({ ...ROLE_DEFAULT_PERMISSIONS.Supervisor });
                     }}
-                    className="btn sm"
                     style={{
-                      padding: '8px 12px',
-                      fontSize: '13px',
-                      fontWeight: 600,
+                      padding: '12px',
                       borderRadius: '10px',
-                      textAlign: 'center',
-                      justifyContent: 'center',
-                      background:
-                        newRole === 'Supervisor' ? 'rgba(59, 130, 246, 0.2)' : 'var(--card)',
-                      color: newRole === 'Supervisor' ? '#60a5fa' : 'var(--ink)',
-                      border:
-                        newRole === 'Supervisor'
-                          ? '1.5px solid #3b82f6'
-                          : '1px solid var(--ln)',
+                      border: `2px solid ${newRole === 'Supervisor' ? 'var(--brand)' : 'var(--ln)'}`,
+                      background: newRole === 'Supervisor' ? 'var(--bsoft)' : 'var(--card)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
                     }}
                   >
-                    Supervisor
+                    <b style={{ display: 'block', fontSize: '13.5px', color: 'var(--ink)' }}>
+                      Supervisor
+                    </b>
+                    <small style={{ color: 'var(--mu)', fontSize: '11px' }}>
+                      Can bill, view reports, manage menu & expenses
+                    </small>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
                       setNewRole('Biller');
                       setNewOverrides({ ...ROLE_DEFAULT_PERMISSIONS.Biller });
                     }}
-                    className="btn sm"
                     style={{
-                      padding: '8px 12px',
-                      fontSize: '13px',
-                      fontWeight: 600,
+                      padding: '12px',
                       borderRadius: '10px',
-                      textAlign: 'center',
-                      justifyContent: 'center',
-                      background:
-                        newRole === 'Biller' ? 'rgba(16, 185, 129, 0.2)' : 'var(--card)',
-                      color: newRole === 'Biller' ? '#10b981' : 'var(--ink)',
-                      border:
-                        newRole === 'Biller'
-                          ? '1.5px solid #10b981'
-                          : '1px solid var(--ln)',
+                      border: `2px solid ${newRole === 'Biller' ? 'var(--brand)' : 'var(--ln)'}`,
+                      background: newRole === 'Biller' ? 'var(--bsoft)' : 'var(--card)',
+                      textAlign: 'left',
+                      cursor: 'pointer',
                     }}
                   >
-                    Biller (Counter)
+                    <b style={{ display: 'block', fontSize: '13.5px', color: 'var(--ink)' }}>
+                      Biller
+                    </b>
+                    <small style={{ color: 'var(--mu)', fontSize: '11px' }}>
+                      Only Fast Billing Counter access
+                    </small>
                   </button>
                 </div>
               </div>
 
-              {/* Module Permissions Switches */}
+              {/* Module Permission Toggles */}
               <div style={{ marginBottom: '20px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '8px',
-                  }}
-                >
-                  <label
-                    style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}
-                  >
-                    Module Permissions (8 Total)
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+                    Permissions ({MODULE_PERMISSIONS.filter((p) => !!newOverrides[p.key]).length} of 8 enabled)
                   </label>
-                  <small style={{ color: 'var(--mu)', fontSize: '11px' }}>
-                    Customizable
+                  <small style={{ color: 'var(--mu)', fontSize: '11.5px', display: 'block' }}>
+                    Fine-tune specific access for this user
                   </small>
                 </div>
 
                 <div className="perm-toggle-grid">
                   {MODULE_PERMISSIONS.map((p) => {
                     const isChecked = !!newOverrides[p.key];
-
                     return (
                       <div key={p.key} className="perm-toggle-item">
                         <div style={{ flex: 1, paddingRight: '8px' }}>
-                          <b style={{ display: 'block', fontSize: '12.5px', color: 'var(--ink)' }}>
+                          <b style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>
                             {p.label}
                           </b>
-                          <small
-                            style={{ color: 'var(--mu)', fontSize: '11px', display: 'block' }}
-                          >
+                          <small style={{ color: 'var(--mu)', fontSize: '11px', display: 'block' }}>
                             {p.desc}
                           </small>
                         </div>
@@ -761,22 +755,23 @@ export const UsersStaffSection: React.FC<{
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
                   className="btn g"
                   onClick={() => setIsAddOpen(false)}
-                  style={{ flex: 1, padding: '10px 14px' }}
+                  style={{ flex: 1 }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
                   className="btn b"
-                  style={{ flex: 1, padding: '10px 14px' }}
+                  disabled={isSubmitting}
+                  style={{ flex: 1, justifyContent: 'center' }}
                 >
-                  {isSubmitting ? 'Saving...' : 'Add Member'}
+                  {isSubmitting ? 'Saving...' : 'Add Staff User'}
                 </button>
               </div>
             </form>
@@ -784,7 +779,7 @@ export const UsersStaffSection: React.FC<{
         </div>
       )}
 
-      {/* MODAL 2: Granular Permissions Customizer Modal */}
+      {/* MODAL 2: Edit Permissions */}
       {selectedMember && (
         <div
           className="modal-backdrop"
@@ -807,11 +802,11 @@ export const UsersStaffSection: React.FC<{
             >
               <div>
                 <h4 style={{ margin: 0, font: '700 18px var(--head)', color: 'var(--ink)' }}>
-                  Edit Permissions
+                  Edit Staff Permissions
                 </h4>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: 'var(--mu)' }}>
-                  {selectedMember.fullName} · {selectedMember.phone ? `+91 ${selectedMember.phone}` : ''}
-                </p>
+                <small style={{ color: 'var(--mu)', fontSize: '12.5px' }}>
+                  {selectedMember.fullName} (+91 {selectedMember.phone})
+                </small>
               </div>
               <button
                 type="button"
@@ -823,105 +818,79 @@ export const UsersStaffSection: React.FC<{
               </button>
             </div>
 
-            <div style={{ marginBottom: '14px' }}>
+            {/* Role Selector */}
+            <div style={{ marginBottom: '18px' }}>
               <label
                 style={{
                   display: 'block',
                   fontSize: '12.5px',
                   fontWeight: 600,
                   color: 'var(--ink)',
-                  marginBottom: '5px',
+                  marginBottom: '8px',
                 }}
               >
-                Staff Role
+                Change Role
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditRole('Supervisor');
-                    setEditOverrides({ ...ROLE_DEFAULT_PERMISSIONS.Supervisor });
-                  }}
-                  className="btn sm"
+                  onClick={() => setEditRole('Supervisor')}
                   style={{
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
+                    padding: '10px 12px',
                     borderRadius: '10px',
-                    textAlign: 'center',
-                    justifyContent: 'center',
-                    background:
-                      editRole === 'Supervisor' ? 'rgba(59, 130, 246, 0.2)' : 'var(--card)',
-                    color: editRole === 'Supervisor' ? '#60a5fa' : 'var(--ink)',
-                    border:
-                      editRole === 'Supervisor'
-                        ? '1.5px solid #3b82f6'
-                        : '1px solid var(--ln)',
+                    border: `2px solid ${editRole === 'Supervisor' ? 'var(--brand)' : 'var(--ln)'}`,
+                    background: editRole === 'Supervisor' ? 'var(--bsoft)' : 'var(--card)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
                   }}
                 >
-                  Supervisor
+                  <b style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>
+                    Supervisor
+                  </b>
+                  <small style={{ color: 'var(--mu)', fontSize: '11px' }}>Manager access</small>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditRole('Biller');
-                    setEditOverrides({ ...ROLE_DEFAULT_PERMISSIONS.Biller });
-                  }}
-                  className="btn sm"
+                  onClick={() => setEditRole('Biller')}
                   style={{
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
+                    padding: '10px 12px',
                     borderRadius: '10px',
-                    textAlign: 'center',
-                    justifyContent: 'center',
-                    background:
-                      editRole === 'Biller' ? 'rgba(16, 185, 129, 0.2)' : 'var(--card)',
-                    color: editRole === 'Biller' ? '#10b981' : 'var(--ink)',
-                    border:
-                      editRole === 'Biller'
-                        ? '1.5px solid #10b981'
-                        : '1px solid var(--ln)',
+                    border: `2px solid ${editRole === 'Biller' ? 'var(--brand)' : 'var(--ln)'}`,
+                    background: editRole === 'Biller' ? 'var(--bsoft)' : 'var(--card)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
                   }}
                 >
-                  Biller (Counter)
+                  <b style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>
+                    Biller
+                  </b>
+                  <small style={{ color: 'var(--mu)', fontSize: '11px' }}>Cashier access</small>
                 </button>
               </div>
             </div>
 
-            {/* Module Permissions Switches */}
+            {/* 8 Module Switches */}
             <div style={{ marginBottom: '20px' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '8px',
-                }}
-              >
-                <label
-                  style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}
-                >
-                  Module Permissions
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+                  Module Permissions ({MODULE_PERMISSIONS.filter((p) => !!editOverrides[p.key]).length} of 8 enabled)
                 </label>
-                <small style={{ color: 'var(--mu)', fontSize: '11px' }}>
-                  Toggle to override
+                <small style={{ color: 'var(--mu)', fontSize: '11.5px', display: 'block' }}>
+                  Changes take effect immediately on staff device upon save
                 </small>
               </div>
 
               <div className="perm-toggle-grid">
                 {MODULE_PERMISSIONS.map((p) => {
                   const isChecked = !!editOverrides[p.key];
-
                   return (
                     <div key={p.key} className="perm-toggle-item">
                       <div style={{ flex: 1, paddingRight: '8px' }}>
-                        <b style={{ display: 'block', fontSize: '12.5px', color: 'var(--ink)' }}>
+                        <b style={{ display: 'block', fontSize: '13px', color: 'var(--ink)' }}>
                           {p.label}
                         </b>
-                        <small
-                          style={{ color: 'var(--mu)', fontSize: '11px', display: 'block' }}
-                        >
+                        <small style={{ color: 'var(--mu)', fontSize: '11px', display: 'block' }}>
                           {p.desc}
                         </small>
                       </div>
@@ -944,21 +913,22 @@ export const UsersStaffSection: React.FC<{
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 type="button"
                 className="btn g"
                 onClick={() => setSelectedMember(null)}
-                style={{ flex: 1, padding: '10px 14px' }}
+                style={{ flex: 1 }}
               >
                 Cancel
               </button>
               <button
-                type="button"
-                disabled={isSavingEdit}
-                onClick={handleSaveEdit}
+                type="submit"
                 className="btn b"
-                style={{ flex: 1, padding: '10px 14px' }}
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit}
+                style={{ flex: 1, justifyContent: 'center' }}
               >
                 {isSavingEdit ? 'Saving...' : 'Save Permissions'}
               </button>

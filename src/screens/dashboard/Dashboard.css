@@ -1720,11 +1720,24 @@
   border-radius: 24px;
   padding: 24px;
   width: 90%;
-  max-width: 420px;
+  max-width: 440px;
   box-shadow: 0 25px 60px -15px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.15);
   animation: receiptSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   position: relative;
   overflow: hidden;
+  color: #0f172a;
+}
+
+.c365-dashboard.theme-dark .success-slip-card {
+  background: #181c28 !important;
+  border: 2px solid #059669 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(16, 185, 129, 0.3) !important;
+}
+
+.c365-dashboard.theme-dark .success-slip-card .success-slip-box {
+  background: #1e2230 !important;
+  border-color: #2b3244 !important;
 }
 
 .c365-dashboard .success-countdown-bar {
