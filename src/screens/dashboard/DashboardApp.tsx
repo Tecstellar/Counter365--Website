@@ -57,6 +57,7 @@ import {
 import './Dashboard.css';
 
 type DashboardTab = 'home' | 'pos' | 'bills' | 'khata' | 'menu' | 'exp' | 'cust' | 'rep' | 'set';
+export type ChartPeriod = 'today' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 
 interface CartItemState {
   key: string;
@@ -230,7 +231,17 @@ export const DashboardApp: React.FC = () => {
   const [selectedSummaryMonth, setSelectedSummaryMonth] = useState<string>('2026-10');
   const [expandedSummaryDate, setExpandedSummaryDate] = useState<string | null>('2026-10-30');
 
-  // Hourly Clock Hover State
+  // Hourly Clock & Multi-Period Chart States
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('today');
+  const [customStartDate, setCustomStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return d.toISOString().split('T')[0];
+  });
+  const [customEndDate, setCustomEndDate] = useState<string>(() => {
+    return new Date().toISOString().split('T')[0];
+  });
+  const [hoveredSliceIdx, setHoveredSliceIdx] = useState<number | null>(null);
   const [hoveredHour, setHoveredHour] = useState<number | null>(null);
 
   // Pro Upgrade Modal State
@@ -644,6 +655,267 @@ Generated via Counter365 Cloud POS`;
       net,
     };
   }, [bills, expenses, allTimePendingDue, getBillPendingDue]);
+
+  // Effective sales received for a bill (cash + upi, or paid portion of due bills)
+  const getBillEffectiveSales = useCallback(
+    (b: Bill): number => {
+      if (!b || b.status === 'deleted' || b.status === 'cancelled') return 0;
+      const amt = Number(b.totalAmount) || 0;
+      const pending = getBillPendingDue(b);
+      const paid = Number(b.paidAmount) || 0;
+
+      if (b.paymentMode === 'Pending' || pending > 0) {
+        return paid > 0 ? paid : 0;
+      }
+      return amt;
+    },
+    [getBillPendingDue]
+  );
+
+  // Dynamic Multi-Period Chart Data (Today, Weekly, Monthly, Yearly, Custom)
+  const periodChartSummary = useMemo(() => {
+    const todayDateStr = getTodayISTDateStr();
+    const now = new Date();
+
+    interface PeriodSlice {
+      key: string | number;
+      label: string;
+      shortLabel: string;
+      subLabel: string;
+      value: number;
+      billsCount: number;
+      isCurrent: boolean;
+    }
+
+    let slices: PeriodSlice[] = [];
+    let periodGoal = 20000;
+    let periodTitle = 'Today so far';
+
+    if (chartPeriod === 'today') {
+      periodTitle = 'Today so far';
+      periodGoal = 20000;
+      const buckets = Array.from({ length: 14 }).map(() => ({ val: 0, count: 0 }));
+      const curHourIdx = Math.max(0, Math.min(13, now.getHours() - 8));
+
+      bills.forEach((b) => {
+        if (b.status !== 'deleted' && isTodayIST(b.createdAt, todayDateStr)) {
+          const d = new Date(b.createdAt);
+          const hour = d.getHours();
+          const bucketIdx = hour - 8;
+          if (bucketIdx >= 0 && bucketIdx < 14) {
+            buckets[bucketIdx].val += getBillEffectiveSales(b);
+            buckets[bucketIdx].count += 1;
+          }
+        }
+      });
+
+      slices = buckets.map((b, i) => {
+        const h = 8 + i;
+        const nextH = h + 1;
+        const hStr = h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+        const nextHStr = nextH < 12 ? `${nextH} AM` : nextH === 12 ? '12 PM' : `${nextH - 12} PM`;
+        return {
+          key: `today-${i}`,
+          label: `${hStr} to ${nextHStr}`,
+          shortLabel: hStr,
+          subLabel: 'Today',
+          value: b.val,
+          billsCount: b.count,
+          isCurrent: i === curHourIdx,
+        };
+      });
+    } else if (chartPeriod === 'weekly') {
+      periodTitle = "This week's sales";
+      periodGoal = 140000;
+      const curDayOfWeekIdx = (now.getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - curDayOfWeekIdx);
+      monday.setHours(0, 0, 0, 0);
+
+      const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const weekFullDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+      slices = weekDays.map((shortDay, i) => {
+        const dayDate = new Date(monday);
+        dayDate.setDate(monday.getDate() + i);
+        const dayFormatted = dayDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const y = dayDate.getFullYear();
+        const m = String(dayDate.getMonth() + 1).padStart(2, '0');
+        const d = String(dayDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+
+        let val = 0;
+        let count = 0;
+        bills.forEach((b) => {
+          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+            val += getBillEffectiveSales(b);
+            count += 1;
+          }
+        });
+
+        return {
+          key: `week-${i}`,
+          label: `${weekFullDays[i]}, ${dayFormatted}`,
+          shortLabel: shortDay,
+          subLabel: dayFormatted,
+          value: val,
+          billsCount: count,
+          isCurrent: i === curDayOfWeekIdx,
+        };
+      });
+    } else if (chartPeriod === 'monthly') {
+      const year = now.getFullYear();
+      const monthIdx = now.getMonth();
+      const totalDays = new Date(year, monthIdx + 1, 0).getDate();
+      const curDay = now.getDate();
+      const monthName = now.toLocaleDateString('en-IN', { month: 'short' });
+      const monthFullName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+      periodTitle = `${monthFullName} sales`;
+      periodGoal = totalDays * 20000;
+
+      for (let d = 1; d <= totalDays; d++) {
+        const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dObj = new Date(year, monthIdx, d);
+        const weekday = dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+
+        let val = 0;
+        let count = 0;
+        bills.forEach((b) => {
+          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+            val += getBillEffectiveSales(b);
+            count += 1;
+          }
+        });
+
+        slices.push({
+          key: `month-${d}`,
+          label: `${d} ${monthName} (${weekday})`,
+          shortLabel: `${d}`,
+          subLabel: monthName,
+          value: val,
+          billsCount: count,
+          isCurrent: d === curDay,
+        });
+      }
+    } else if (chartPeriod === 'yearly') {
+      const year = now.getFullYear();
+      const curMonth = now.getMonth();
+      periodTitle = `${year} annual sales`;
+      periodGoal = 20000 * 365;
+
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthFullNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      slices = monthNames.map((mShort, i) => {
+        const monthKey = `${year}-${String(i + 1).padStart(2, '0')}`;
+        let val = 0;
+        let count = 0;
+        bills.forEach((b) => {
+          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(monthKey)) {
+            val += getBillEffectiveSales(b);
+            count += 1;
+          }
+        });
+
+        return {
+          key: `year-${i}`,
+          label: `${monthFullNames[i]} ${year}`,
+          shortLabel: mShort,
+          subLabel: `${year}`,
+          value: val,
+          billsCount: count,
+          isCurrent: i === curMonth,
+        };
+      });
+    } else if (chartPeriod === 'custom') {
+      const start = new Date(customStartDate || todayDateStr);
+      const end = new Date(customEndDate || todayDateStr);
+      const diffMs = Math.max(0, end.getTime() - start.getTime());
+      const diffDays = Math.min(62, Math.max(1, Math.round(diffMs / (1000 * 3600 * 24)) + 1));
+
+      periodTitle = `Custom period (${diffDays} days)`;
+      periodGoal = diffDays * 20000;
+
+      for (let i = 0; i < diffDays; i++) {
+        const dayDate = new Date(start);
+        dayDate.setDate(start.getDate() + i);
+        const y = dayDate.getFullYear();
+        const m = String(dayDate.getMonth() + 1).padStart(2, '0');
+        const d = String(dayDate.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+        const dateFormatted = dayDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        const weekday = dayDate.toLocaleDateString('en-IN', { weekday: 'short' });
+
+        let val = 0;
+        let count = 0;
+        bills.forEach((b) => {
+          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+            val += getBillEffectiveSales(b);
+            count += 1;
+          }
+        });
+
+        slices.push({
+          key: `custom-${dateStr}`,
+          label: `${dateFormatted} (${weekday})`,
+          shortLabel: `${dayDate.getDate()}/${dayDate.getMonth() + 1}`,
+          subLabel: dateFormatted,
+          value: val,
+          billsCount: count,
+          isCurrent: isTodayIST(dateStr, todayDateStr),
+        });
+      }
+    }
+
+    const totalSales = slices.reduce((sum, s) => sum + s.value, 0);
+    const totalBills = slices.reduce((sum, s) => sum + s.billsCount, 0);
+    const avgBill = totalBills > 0 ? Math.round(totalSales / totalBills) : 0;
+    const goalPct = Math.min(100, (totalSales / Math.max(periodGoal, 1)) * 100);
+
+    // Peak slice calculation
+    const peakSlice = slices.reduce(
+      (prev, curr) => (curr.value > prev.value ? curr : prev),
+      slices[0] || {
+        key: '0',
+        label: 'No data',
+        shortLabel: '-',
+        subLabel: '',
+        value: 0,
+        billsCount: 0,
+        isCurrent: false,
+      }
+    );
+
+    let caption = '';
+    if (chartPeriod === 'today') {
+      caption = `Every bar is 1 hour of trading. Busiest at ${peakSlice.shortLabel} (${fm(peakSlice.value)})`;
+    } else if (chartPeriod === 'weekly') {
+      caption = `7-day trading rhythm. Peak day: ${peakSlice.label} (${fm(peakSlice.value)})`;
+    } else if (chartPeriod === 'monthly') {
+      caption = `Monthly day-by-day rhythm. Peak day: ${peakSlice.label} (${fm(peakSlice.value)})`;
+    } else if (chartPeriod === 'yearly') {
+      caption = `12-month overview. Best month: ${peakSlice.label} (${fm(peakSlice.value)})`;
+    } else {
+      caption = `Custom range. Peak day: ${peakSlice.label} (${fm(peakSlice.value)})`;
+    }
+
+    return {
+      period: chartPeriod,
+      title: periodTitle,
+      slices,
+      totalSales,
+      totalBills,
+      avgBill,
+      goal: periodGoal,
+      goalPct,
+      peakSlice,
+      caption,
+    };
+  }, [bills, chartPeriod, customStartDate, customEndDate, getBillEffectiveSales, isTodayIST, getTodayISTDateStr]);
 
   // Hourly Breakdown (14 buckets: 8 AM to 9 PM strictly for TODAY)
   const hourlyData = useMemo(() => {
@@ -2113,6 +2385,57 @@ Generated via Counter365 POS Cloud`;
 
   const headerMeta = getHeaderMeta();
 
+  // Helper for Dynamic Multi-Period Arc Slices (Today, Weekly, Monthly, Yearly, Custom)
+  const renderDynamicChartSlices = () => {
+    const slices = periodChartSummary.slices;
+    const N = Math.max(1, slices.length);
+    const mx = Math.max(...slices.map((s) => s.value), 1);
+
+    const sec = (R: number, r: number, a: number, b: number) => {
+      const p = (q: number, t: number) => `${(210 + q * Math.cos(t)).toFixed(1)} ${(210 + q * Math.sin(t)).toFixed(1)}`;
+      return `M${p(R, a)}L${p(r, a)}A${r} ${r} 0 0 1 ${p(r, b)}L${p(R, b)}A${R} ${R} 0 0 0 ${p(R, a)}Z`;
+    };
+
+    // Responsive gap angle based on number of slices
+    const gap = Math.min(2.5, Math.max(0.6, (360 / N) * 0.1));
+
+    return slices.map((s, i) => {
+      const a = ((-90 + (i * 360) / N + gap) * Math.PI) / 180;
+      const b = ((-90 + ((i + 1) * 360) / N - gap) * Math.PI) / 180;
+      const r = s.value === 0 ? 127 : 128 + (s.value / mx) * 60;
+
+      const isHovered = hoveredSliceIdx === i;
+      let col = '#d9dce8';
+      if (s.value > 0) {
+        col = isHovered ? '#ff5f00' : s.isCurrent ? '#ff5f00' : '#8fa0b5';
+      } else if (s.isCurrent) {
+        col = '#ff5f00';
+      }
+
+      return (
+        <path
+          key={s.key}
+          className={`rb ${s.isCurrent ? 'cur' : ''}`}
+          style={{
+            animationDelay: `${Math.min(i * 0.03, 0.6)}s`,
+            filter: isHovered ? 'drop-shadow(0 0 8px rgba(255, 95, 0, 0.7))' : 'none',
+            transform: isHovered ? 'scale(1.02)' : 'none',
+            transformOrigin: '210px 210px',
+            transition: 'opacity 0.2s, stroke-width 0.2s',
+          }}
+          d={sec(122, r, a, b)}
+          fill={col}
+          stroke={col}
+          strokeWidth={isHovered ? '6' : '4'}
+          strokeLinejoin="round"
+          opacity={s.value === 0 ? 0.65 : isHovered ? 1 : 0.9}
+          onMouseEnter={() => setHoveredSliceIdx(i)}
+          onMouseLeave={() => setHoveredSliceIdx(null)}
+        />
+      );
+    });
+  };
+
   // Helper for Clock arc slices
   const renderHourlySlices = () => {
     const N = 14;
@@ -2430,10 +2753,98 @@ Generated via Counter365 POS Cloud`;
             {/* TAB 1: DASHBOARD (HOME) */}
             {tab === 'home' && (
               <div className="hm">
-                {/* 24-hr SVG Clock Stage */}
+                {/* Multi-Period Radial Chart Stage */}
                 <section>
+                  {/* Period Slider Control */}
+                  <div className="chart-period-container">
+                    <div className="chart-period-slider" role="tablist" aria-label="Chart period filter">
+                      <button
+                        type="button"
+                        className={`chart-period-btn ${chartPeriod === 'today' ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod('today');
+                          setHoveredSliceIdx(null);
+                        }}
+                      >
+                        <Clock size={13} />
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        className={`chart-period-btn ${chartPeriod === 'weekly' ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod('weekly');
+                          setHoveredSliceIdx(null);
+                        }}
+                      >
+                        <CalendarDays size={13} />
+                        Weekly
+                      </button>
+                      <button
+                        type="button"
+                        className={`chart-period-btn ${chartPeriod === 'monthly' ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod('monthly');
+                          setHoveredSliceIdx(null);
+                        }}
+                      >
+                        <Calendar size={13} />
+                        Monthly
+                      </button>
+                      <button
+                        type="button"
+                        className={`chart-period-btn ${chartPeriod === 'yearly' ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod('yearly');
+                          setHoveredSliceIdx(null);
+                        }}
+                      >
+                        <BarChart3 size={13} />
+                        Yearly
+                      </button>
+                      <button
+                        type="button"
+                        className={`chart-period-btn ${chartPeriod === 'custom' ? 'active' : ''}`}
+                        onClick={() => {
+                          setChartPeriod('custom');
+                          setHoveredSliceIdx(null);
+                        }}
+                      >
+                        <Sparkles size={13} />
+                        Custom
+                      </button>
+                    </div>
+
+                    {/* Custom Date Range Picker */}
+                    {chartPeriod === 'custom' && (
+                      <div className="chart-custom-range-picker">
+                        <span style={{ fontWeight: 600 }}>From:</span>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          max={customEndDate || getTodayISTDateStr()}
+                          onChange={(e) => {
+                            setCustomStartDate(e.target.value);
+                            setHoveredSliceIdx(null);
+                          }}
+                        />
+                        <span style={{ fontWeight: 600 }}>To:</span>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          min={customStartDate}
+                          max={getTodayISTDateStr()}
+                          onChange={(e) => {
+                            setCustomEndDate(e.target.value);
+                            setHoveredSliceIdx(null);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="stage">
-                    <svg viewBox="0 0 420 420" role="img" aria-label="Sales by hour">
+                    <svg viewBox="0 0 420 420" role="img" aria-label={`Sales by ${chartPeriod}`}>
                       <circle cx="210" cy="210" r="104" fill="none" stroke="#dcdfea" strokeWidth="7" />
                       <circle
                         className="pg"
@@ -2445,33 +2856,43 @@ Generated via Counter365 POS Cloud`;
                         strokeWidth="7"
                         strokeLinecap="round"
                         pathLength="100"
-                        strokeDasharray={`${goalPct.toFixed(1)} 100`}
+                        strokeDasharray={`${periodChartSummary.goalPct.toFixed(1)} 100`}
                         transform="rotate(-90 210 210)"
                       />
-                      {renderHourlySlices()}
+                      {renderDynamicChartSlices()}
                     </svg>
 
                     <div className="mid">
                       <small>
-                        {hoveredHour !== null
-                          ? `${hl(hoveredHour)} to ${hl(hoveredHour + 1)}`
-                          : 'Today so far'}
+                        {hoveredSliceIdx !== null && periodChartSummary.slices[hoveredSliceIdx]
+                          ? periodChartSummary.slices[hoveredSliceIdx].label
+                          : periodChartSummary.title}
                       </small>
                       <b>
-                        {hoveredHour !== null
-                          ? (can('total') ? fm(hourlyData[hoveredHour]) : '₹••••')
-                          : (can('total') ? fm(totals.sales) : '₹••••')}
+                        {hoveredSliceIdx !== null && periodChartSummary.slices[hoveredSliceIdx]
+                          ? (can('total') ? fm(periodChartSummary.slices[hoveredSliceIdx].value) : '₹••••')
+                          : (can('total') ? fm(periodChartSummary.totalSales) : '₹••••')}
                       </b>
                       <span>
-                        {hoveredHour !== null ? 'sold this hour' : (can('total') ? goalSub : 'Access restricted')}
+                        {hoveredSliceIdx !== null && periodChartSummary.slices[hoveredSliceIdx]
+                          ? `${periodChartSummary.slices[hoveredSliceIdx].billsCount} bills · ${
+                              periodChartSummary.totalSales > 0
+                                ? `${Math.round(
+                                    (periodChartSummary.slices[hoveredSliceIdx].value /
+                                      periodChartSummary.totalSales) *
+                                      100
+                                  )}% of total`
+                                : '0%'
+                            }`
+                          : chartPeriod === 'today'
+                          ? (can('total') ? goalSub : 'Access restricted')
+                          : `${periodChartSummary.totalBills} bills · Avg ${fm(periodChartSummary.avgBill)} / bill`}
                       </span>
                     </div>
                   </div>
 
                   <p className="cap" style={{ textAlign: 'center', margin: '22px 0 0' }}>
-                    Every bar is one hour of trading. Busiest at{' '}
-                    {hl(hourlyData.indexOf(Math.max(...hourlyData, 1)))} ·{' '}
-                    <span className="up">+14.2% vs yesterday</span>
+                    {periodChartSummary.caption}
                   </p>
                 </section>
 

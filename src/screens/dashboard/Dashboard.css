@@ -301,6 +301,80 @@
   align-items: start;
 }
 
+/* Dashboard Chart Period Slider */
+.c365-dashboard .chart-period-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.c365-dashboard .chart-period-slider {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  gap: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.c365-dashboard .chart-period-btn {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.c365-dashboard .chart-period-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
+}
+
+.c365-dashboard .chart-period-btn.active {
+  background: var(--ink);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.c365-dashboard .chart-custom-range-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  background: #ffffff;
+  padding: 6px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.c365-dashboard .chart-custom-range-picker input[type="date"] {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 12px;
+  outline: none;
+  background: #f8fafc;
+  color: inherit;
+  font-family: inherit;
+}
+
 .c365-dashboard .stage {
   position: relative;
   width: 100%;
@@ -2635,6 +2709,41 @@
   background: #3b1818 !important;
   border-color: #991b1b !important;
   color: #f87171 !important;
+}
+
+/* Dashboard Chart Period Slider Dark Mode */
+.c365-dashboard.theme-dark .chart-period-slider {
+  background: #191d29;
+  border-color: #2a3142;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.c365-dashboard.theme-dark .chart-period-btn {
+  color: #94a3b8;
+}
+
+.c365-dashboard.theme-dark .chart-period-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+}
+
+.c365-dashboard.theme-dark .chart-period-btn.active {
+  background: #ff5f00;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 95, 0, 0.35);
+}
+
+.c365-dashboard.theme-dark .chart-custom-range-picker {
+  background: #191d29;
+  border-color: #2a3142;
+  color: #f1f5f9;
+}
+
+.c365-dashboard.theme-dark .chart-custom-range-picker input[type="date"] {
+  background: #10131a;
+  border-color: #333d52;
+  color: #f1f5f9;
+  color-scheme: dark;
 }
 
 .c365-dashboard.theme-dark .btn-danger {
