@@ -1865,9 +1865,22 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="fb">
             <span>Made with ☕ for counters everywhere</span>
-            <a className="fl" href="#top">
-              Back to top ↑
-            </a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <a
+                className="fl"
+                href="https://counter365-admin.tecstellar.com/"
+                target="_blank"
+                rel="noreferrer"
+                style={{ letterSpacing: '0.06em', fontWeight: 600, fontSize: '0.82rem' }}
+                title="Counter365 Admin Dashboard"
+              >
+                ADMIN
+              </a>
+              <span style={{ opacity: 0.35 }}>·</span>
+              <a className="fl" href="#top">
+                Back to top ↑
+              </a>
+            </div>
           </div>
         </div>
       </footer>
