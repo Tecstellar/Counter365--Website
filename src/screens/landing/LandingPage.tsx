@@ -1,5 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Home,
+  Zap,
+  Sparkles,
+  Store,
+  Tag,
+  Laptop,
+  ArrowRight,
+  ChevronRight,
+  Menu,
+  X,
+} from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -423,55 +435,59 @@ export const LandingPage: React.FC = () => {
           display: none;
           align-items: center;
           justify-content: center;
-          width: 40px;
-          height: 40px;
+          width: 38px;
+          height: 38px;
           border-radius: 50%;
           background: rgba(255, 90, 0, 0.08);
-          border: 1.5px solid rgba(255, 90, 0, 0.28);
-          color: var(--o);
+          border: 1.5px solid rgba(255, 90, 0, 0.24);
+          color: #FF5A00;
           cursor: pointer;
           transition: all .2s cubic-bezier(.16, 1, .3, 1);
           padding: 0;
           outline: none;
+          flex-shrink: 0;
         }
-        .mobile-menu-toggle:hover {
-          background: var(--o);
+        .mobile-menu-toggle:hover,
+        .mobile-menu-toggle.is-active {
+          background: #FF5A00;
           color: #ffffff;
-          transform: scale(1.05);
+          border-color: #FF5A00;
+          box-shadow: 0 4px 14px rgba(255, 90, 0, 0.35);
+          transform: scale(1.04);
         }
         .mobile-menu-toggle:active {
-          transform: scale(0.94);
+          transform: scale(0.95);
         }
 
         .mobile-nav-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(20, 14, 9, 0.6);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          background: rgba(20, 14, 9, 0.4);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           z-index: 1098;
-          animation: navFadeIn .22s cubic-bezier(.16, 1, .3, 1) forwards;
+          animation: navFadeIn .18s cubic-bezier(.16, 1, .3, 1) forwards;
         }
         .mobile-nav-drawer {
           position: fixed;
-          top: 72px;
-          left: 12px;
-          right: 12px;
-          max-width: 480px;
-          margin: 0 auto;
-          background: rgba(255, 253, 249, 0.98);
-          border: 1.5px solid rgba(255, 90, 0, 0.25);
-          border-radius: 24px;
-          padding: 16px;
-          box-shadow: 0 24px 50px -10px rgba(27, 18, 11, 0.32), 0 10px 30px -5px rgba(255, 90, 0, 0.25);
+          top: 68px;
+          right: 14px;
+          left: auto;
+          width: min(300px, calc(100vw - 28px));
+          background: rgba(255, 255, 255, 0.97);
+          border: 1px solid rgba(255, 90, 0, 0.2);
+          border-radius: 20px;
+          padding: 12px;
+          box-shadow: 0 20px 48px -10px rgba(27, 18, 11, 0.24), 0 8px 24px -4px rgba(255, 90, 0, 0.15);
           backdrop-filter: blur(28px);
           -webkit-backdrop-filter: blur(28px);
           z-index: 1100;
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          animation: navSlideDown .26s cubic-bezier(.16, 1, .3, 1) forwards;
-          max-height: calc(100vh - 90px);
+          gap: 8px;
+          transform-origin: top right;
+          animation: cornerMenuPop .22s cubic-bezier(.16, 1, .3, 1) forwards;
+          max-height: calc(100vh - 84px);
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
         }
@@ -479,45 +495,44 @@ export const LandingPage: React.FC = () => {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        @keyframes navSlideDown {
-          from { opacity: 0; transform: translateY(-14px) scale(0.97); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+        @keyframes cornerMenuPop {
+          from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
         .mobile-drawer-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 2px 4px 10px;
-          border-bottom: 1px solid rgba(27, 18, 11, 0.08);
+          padding: 2px 4px 8px;
+          border-bottom: 1px solid rgba(27, 18, 11, 0.07);
         }
         .mobile-drawer-title {
-          font-size: 0.74rem;
+          font-size: 0.72rem;
           font-weight: 800;
           letter-spacing: .12em;
           text-transform: uppercase;
-          color: var(--mute);
+          color: #a89d91;
           display: flex;
           align-items: center;
           gap: 6px;
         }
         .mobile-drawer-close {
-          width: 32px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
           border-radius: 50%;
-          border: 1px solid rgba(27, 18, 11, 0.1);
-          background: rgba(27, 18, 11, 0.04);
+          border: 1px solid rgba(27, 18, 11, 0.08);
+          background: rgba(27, 18, 11, 0.03);
           color: var(--ink);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          font-size: 14px;
-          line-height: 1;
-          transition: background .15s ease, color .15s ease;
+          transition: background .15s ease, color .15s ease, transform .15s ease;
         }
         .mobile-drawer-close:hover {
           background: rgba(255, 90, 0, 0.12);
-          color: var(--o);
+          color: #FF5A00;
+          transform: scale(1.05);
         }
         .mobile-nav-list {
           display: flex;
@@ -530,9 +545,9 @@ export const LandingPage: React.FC = () => {
         .mobile-nav-item {
           display: flex;
           align-items: center;
-          gap: 12px;
-          padding: 10px 12px;
-          border-radius: 14px;
+          gap: 10px;
+          padding: 8px 10px;
+          border-radius: 12px;
           text-decoration: none;
           color: var(--ink);
           background: transparent;
@@ -541,89 +556,109 @@ export const LandingPage: React.FC = () => {
           -webkit-tap-highlight-color: transparent;
         }
         .mobile-nav-item:hover, .mobile-nav-item:active {
-          background: rgba(255, 90, 0, 0.08);
-          border-color: rgba(255, 90, 0, 0.18);
-          transform: translateX(3px);
+          background: rgba(255, 90, 0, 0.07);
+          border-color: rgba(255, 90, 0, 0.16);
+          transform: translateX(2px);
         }
         .mobile-nav-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: var(--soft);
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          background: rgba(255, 90, 0, 0.08);
+          color: #FF5A00;
+          border: 1px solid rgba(255, 90, 0, 0.12);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.1rem;
           flex-shrink: 0;
+          transition: background .15s ease, color .15s ease, transform .15s ease;
+        }
+        .mobile-nav-item:hover .mobile-nav-icon {
+          background: #FF5A00;
+          color: #ffffff;
+          transform: scale(1.04);
         }
         .mobile-nav-text {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
           flex: 1;
+          min-width: 0;
         }
         .mobile-nav-label {
-          font-size: 0.94rem;
+          font-size: 0.86rem;
           font-weight: 700;
           color: var(--ink);
+          line-height: 1.25;
         }
         .mobile-nav-desc {
-          font-size: 0.74rem;
-          color: var(--mute);
+          font-size: 0.70rem;
+          color: #7a6e62;
           font-weight: 400;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .mobile-nav-arrow {
-          color: var(--mute);
-          font-size: 1.2rem;
-          opacity: 0.5;
-          transition: transform .15s ease, opacity .15s ease;
+          color: #a89d91;
+          display: flex;
+          align-items: center;
+          opacity: 0.55;
+          transition: transform .15s ease, opacity .15s ease, color .15s ease;
         }
         .mobile-nav-item:hover .mobile-nav-arrow {
-          transform: translateX(3px);
+          transform: translateX(2px);
           opacity: 1;
-          color: var(--o);
+          color: #FF5A00;
         }
         .mobile-drawer-cta {
           display: flex;
           flex-direction: column;
-          gap: 8px;
-          margin-top: 4px;
-          padding-top: 12px;
-          border-top: 1px solid rgba(27, 18, 11, 0.08);
+          gap: 6px;
+          margin-top: 2px;
+          padding-top: 10px;
+          border-top: 1px solid rgba(27, 18, 11, 0.07);
         }
         .mobile-primary-btn {
           width: 100%;
           display: flex;
           align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 12px 18px;
-          border-radius: 14px;
-          font: 700 0.95rem "DM Sans", sans-serif;
+          justify-content: space-between;
+          padding: 10px 14px;
+          border-radius: 12px;
+          font: 700 0.88rem "DM Sans", sans-serif;
           border: none;
           cursor: pointer;
           color: #fff;
-          background: linear-gradient(120deg, #FF5A00, #FF9A4D, #FF5A00);
-          background-size: 200% 100%;
-          box-shadow: 0 8px 22px -6px var(--o);
-          transition: transform .2s ease;
+          background: linear-gradient(135deg, #FF5A00 0%, #FF7728 100%);
+          box-shadow: 0 4px 14px rgba(255, 90, 0, 0.35);
+          transition: transform .15s ease, box-shadow .15s ease;
+        }
+        .mobile-primary-btn:hover {
+          box-shadow: 0 6px 18px rgba(255, 90, 0, 0.45);
         }
         .mobile-primary-btn:active {
           transform: scale(0.98);
+        }
+        .mobile-btn-content {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         .mobile-sub-actions {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 4px 6px;
-          font-size: 0.78rem;
+          padding: 2px 4px 0;
+          font-size: 0.72rem;
           color: var(--mute);
         }
         .mobile-sub-link {
           color: var(--o);
           font-weight: 600;
           text-decoration: underline;
-          text-underline-offset: 3px;
+          text-underline-offset: 2px;
         }
 
         #menu {
@@ -1118,90 +1153,104 @@ export const LandingPage: React.FC = () => {
 
           {/* Mobile Hamburger / Close Toggle */}
           <button
-            className="mobile-menu-toggle"
+            className={`mobile-menu-toggle ${mobileMenuOpen ? 'is-active' : ''}`}
             onClick={() => setMobileMenuOpen(prev => !prev)}
             aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <X size={19} strokeWidth={2.4} />
             ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="7" x2="20" y2="7" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="17" x2="20" y2="17" />
-              </svg>
+              <Menu size={19} strokeWidth={2.4} />
             )}
           </button>
         </div>
       </nav>
 
-      {/* Mobile Navigation Drawer Modal */}
+      {/* Mobile Navigation Corner Menu */}
       {mobileMenuOpen && (
         <>
           <div className="mobile-nav-backdrop" onClick={() => setMobileMenuOpen(false)} />
           <aside className="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Navigation Menu">
             <div className="mobile-drawer-header">
               <span className="mobile-drawer-title">
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--o)', display: 'inline-block' }} />
-                Menu
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF5A00', display: 'inline-block' }} />
+                Counter365 Menu
               </span>
               <button className="mobile-drawer-close" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
-                ✕
+                <X size={15} strokeWidth={2.4} />
               </button>
             </div>
 
             <ul className="mobile-nav-list">
               <li>
                 <a href="#top" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'top')}>
-                  <span className="mobile-nav-icon">🏠</span>
+                  <span className="mobile-nav-icon">
+                    <Home size={16} strokeWidth={2.2} />
+                  </span>
                   <div className="mobile-nav-text">
                     <span className="mobile-nav-label">Home</span>
                     <span className="mobile-nav-desc">Overview & live interactive demo</span>
                   </div>
-                  <span className="mobile-nav-arrow">›</span>
+                  <span className="mobile-nav-arrow">
+                    <ChevronRight size={14} strokeWidth={2.4} />
+                  </span>
                 </a>
               </li>
               <li>
                 <a href="#why" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'why')}>
-                  <span className="mobile-nav-icon">⚡</span>
+                  <span className="mobile-nav-icon">
+                    <Zap size={16} strokeWidth={2.2} />
+                  </span>
                   <div className="mobile-nav-text">
-                    <span className="mobile-nav-label">Why Counter 365</span>
+                    <span className="mobile-nav-label">Why Counter365</span>
                     <span className="mobile-nav-desc">1-tap billing built for peak rush</span>
                   </div>
-                  <span className="mobile-nav-arrow">›</span>
+                  <span className="mobile-nav-arrow">
+                    <ChevronRight size={14} strokeWidth={2.4} />
+                  </span>
                 </a>
               </li>
               <li>
                 <a href="#features" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'features')}>
-                  <span className="mobile-nav-icon">✨</span>
+                  <span className="mobile-nav-icon">
+                    <Sparkles size={16} strokeWidth={2.2} />
+                  </span>
                   <div className="mobile-nav-text">
                     <span className="mobile-nav-label">Features</span>
                     <span className="mobile-nav-desc">KOT, Khata, Thermal Print & Reports</span>
                   </div>
-                  <span className="mobile-nav-arrow">›</span>
+                  <span className="mobile-nav-arrow">
+                    <ChevronRight size={14} strokeWidth={2.4} />
+                  </span>
                 </a>
               </li>
               <li>
                 <a href="#who" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'who')}>
-                  <span className="mobile-nav-icon">☕</span>
+                  <span className="mobile-nav-icon">
+                    <Store size={16} strokeWidth={2.2} />
+                  </span>
                   <div className="mobile-nav-text">
-                    <span className="mobile-nav-label">Who It’s For</span>
+                    <span className="mobile-nav-label">Who It Is For</span>
                     <span className="mobile-nav-desc">Tea stalls, cafés, bakeries & food courts</span>
                   </div>
-                  <span className="mobile-nav-arrow">›</span>
+                  <span className="mobile-nav-arrow">
+                    <ChevronRight size={14} strokeWidth={2.4} />
+                  </span>
                 </a>
               </li>
               <li>
                 <a href="#pricing" className="mobile-nav-item" onClick={(e) => handleNavClick(e, 'pricing')}>
-                  <span className="mobile-nav-icon">🏷️</span>
+                  <span className="mobile-nav-icon">
+                    <Tag size={16} strokeWidth={2.2} />
+                  </span>
                   <div className="mobile-nav-text">
                     <span className="mobile-nav-label">Pricing Plans</span>
-                    <span className="mobile-nav-desc">Starting at ₹833/month</span>
+                    <span className="mobile-nav-desc">Starting at ₹833/month · Free 100 bills</span>
                   </div>
-                  <span className="mobile-nav-arrow">›</span>
+                  <span className="mobile-nav-arrow">
+                    <ChevronRight size={14} strokeWidth={2.4} />
+                  </span>
                 </a>
               </li>
             </ul>
@@ -1213,9 +1262,13 @@ export const LandingPage: React.FC = () => {
                   setMobileMenuOpen(false);
                   navigate('/login');
                 }}
+                aria-label="Launch Counter365 Web"
               >
-                <span>Launch Counter Web / Login</span>
-                <span>→</span>
+                <div className="mobile-btn-content">
+                  <Laptop size={16} strokeWidth={2.2} />
+                  <span>Launch Counter365 Web</span>
+                </div>
+                <ArrowRight size={15} strokeWidth={2.4} />
               </button>
               <div className="mobile-sub-actions">
                 <span>Free 100 bills included</span>
