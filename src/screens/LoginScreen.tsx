@@ -213,18 +213,6 @@ export const LoginScreen: React.FC = () => {
     otpInputRefs.current[nextIdx]?.focus();
   };
 
-  // Try quick demo handler
-  const handleTryDemo = () => {
-    setActiveTab(1);
-    setPhone(DEMO_REVIEW_PHONE);
-    setIsTermsAgreed(true);
-    setIsOtpSent(true);
-    const demoArr = DEMO_REVIEW_OTP.split('');
-    setOtpDigits(demoArr);
-    setMsg(`Demo mode activated! OTP filled: ${DEMO_REVIEW_OTP}`);
-    setIsError(false);
-    setIsUnregisteredNumber(false);
-  };
 
   return (
     <div className="login-root">
@@ -311,22 +299,7 @@ export const LoginScreen: React.FC = () => {
           gap: 12px;
           align-items: center;
         }
-        .login-demo {
-          font: 600 13px var(--sans);
-          color: var(--brand-ink);
-          background: var(--chip);
-          border: 1px solid #f7c7a6;
-          padding: 8px 16px;
-          border-radius: 99px;
-          cursor: pointer;
-          transition: background 0.2s, transform 0.15s;
-        }
-        .login-demo:hover {
-          background: #ffe6d4;
-        }
-        .login-demo:active {
-          transform: scale(0.97);
-        }
+
         .login-home {
           font: 600 13px var(--sans);
           color: var(--page-muted);
@@ -840,9 +813,6 @@ export const LoginScreen: React.FC = () => {
           </span>
         </div>
         <nav className="login-nav">
-          <button className="login-demo" type="button" onClick={handleTryDemo}>
-            Try quick demo
-          </button>
           <a className="login-home" onClick={() => navigate('/')}>
             ← Home
           </a>

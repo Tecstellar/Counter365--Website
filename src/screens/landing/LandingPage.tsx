@@ -34,6 +34,7 @@ export const LandingPage: React.FC = () => {
     features: string[];
   } | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [policyModal, setPolicyModal] = useState<'privacy' | 'terms' | null>(null);
 
   const pricingPlans = [
     {
@@ -978,13 +979,25 @@ export const LandingPage: React.FC = () => {
         .fin h2 { margin-inline: auto; color: #fff; }
         .fin .lead { margin: 0 auto 26px; color: #cdbfb1; }
         .fin .cta { justify-content: center; }
-        .cup { position: relative; width: 120px; height: 120px; margin: 0 auto 24px; color: var(--o2); }
-        .cup img { width: 100%; height: 100%; border-radius: 30px; box-shadow: 0 0 0 1px rgba(255,255,255,.15), 0 20px 60px -10px var(--o); }
-        .steam { position: absolute; left: 0; right: 0; top: -40px; display: flex; justify-content: center; gap: 18px; }
+        .cup { position: relative; width: 136px; height: 136px; margin: 0 auto 28px; display: flex; align-items: center; justify-content: center; }
+        .cup-rounder { position: relative; width: 136px; height: 136px; border-radius: 50%; background: #ffffff; box-shadow: 0 18px 45px rgba(0,0,0,0.45), 0 0 0 6px rgba(255, 90, 0, 0.28), 0 0 35px rgba(255, 90, 0, 0.35); display: flex; align-items: center; justify-content: center; }
+        .cup-spin-svg { position: absolute; inset: 0; width: 100%; height: 100%; animation: rot 16s linear infinite; pointer-events: none; }
+        .cup-spin-svg text { font: 800 10.2px "DM Sans", sans-serif; fill: var(--o); letter-spacing: 1.1px; }
+        .cup-core { width: 82px; height: 82px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.08), inset 0 0 0 1.5px rgba(255, 90, 0, 0.2); z-index: 2; }
+        .cup-core img { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 3px 8px rgba(255, 90, 0, 0.25)); }
+        .steam { position: absolute; left: 0; right: 0; top: -40px; display: flex; justify-content: center; gap: 18px; z-index: 3; }
         .steam i { width: 10px; height: 46px; border-radius: 50%; background: linear-gradient(transparent, rgba(255,255,255,.75)); filter: blur(6px); opacity: 0; animation: sm 3.2s ease-in infinite; }
         .steam i:nth-child(2) { animation-delay: 1s; }
         .steam i:nth-child(3) { animation-delay: 2s; }
         @keyframes sm { 0% { transform: translateY(24px) scaleX(1); opacity: 0; } 30% { opacity: .8; } 100% { transform: translateY(-30px) scaleX(2.4); opacity: 0; } }
+
+        .policy-modal { background: #fff; border-radius: 26px; width: 100%; max-width: 640px; max-height: 85vh; padding: 30px 28px 24px; box-shadow: 0 25px 60px -15px rgba(28,25,23,.35); position: relative; animation: p_drop .25s cubic-bezier(.3,.1,.2,1); display: flex; flex-direction: column; }
+        .policy-body { overflow-y: auto; padding-right: 8px; font-size: 14px; line-height: 1.65; color: #44403c; }
+        .policy-body h5 { font: 700 15px var(--font-head); color: #1c1917; margin: 18px 0 6px; }
+        .policy-body h5:first-child { margin-top: 0; }
+        .policy-body p { margin: 0 0 12px; }
+        .policy-body ul { margin: 0 0 12px; padding-left: 20px; }
+        .policy-body li { margin-bottom: 6px; }
 
         footer.ft { position: relative; overflow: hidden; background: var(--esp); color: #cdbfb1; padding: 72px 0 26px; font-size: .92rem; }
         .fg { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 40px; position: relative; z-index: 1; }
@@ -1698,7 +1711,24 @@ export const LandingPage: React.FC = () => {
               <i></i>
               <i></i>
             </div>
-            <img src="/counter365_icon_dark.png" alt="Counter 365" style={{ width: '100%', height: '100%', borderRadius: 30, objectFit: 'cover' }} />
+            <div className="cup-rounder">
+              <svg viewBox="0 0 136 136" className="cup-spin-svg">
+                <defs>
+                  <path id="cup-text-path" d="M68,68 m-51,0 a51,51 0 1,1 102,0 a51,51 0 1,1 -102,0" />
+                </defs>
+                <text>
+                  <textPath href="#cup-text-path" textLength="316" lengthAdjust="spacing">
+                    COUNTER 365 ✦ SMART BILLING ✦ FAST POS ✦{' '}
+                  </textPath>
+                </text>
+              </svg>
+              <div className="cup-core">
+                <img
+                  src="/counter365_icon.png"
+                  alt="Counter 365"
+                />
+              </div>
+            </div>
           </div>
           <h2>Make every rush hour feel easy.</h2>
           <p className="lead">Open Counter 365 and send your first bill today.</p>
@@ -1779,14 +1809,40 @@ export const LandingPage: React.FC = () => {
               <p>
                 © 2026 Counter 365.
                 <br />
-                Powered by Tecstellar.
+                Powered by{' '}
+                <a
+                  className="fl"
+                  href="https://tecstellar.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: '#FF7A29', fontWeight: 700, textDecoration: 'underline' }}
+                >
+                  Tecstellar
+                </a>
+                .
               </p>
               <p style={{ marginTop: 12 }}>
-                <a className="fl" href="#top">
+                <a
+                  className="fl"
+                  href="#privacy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPolicyModal('privacy');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   Privacy policy
                 </a>{' '}
                 ·{' '}
-                <a className="fl" href="#top">
+                <a
+                  className="fl"
+                  href="#terms"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setPolicyModal('terms');
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
                   Terms and conditions
                 </a>
               </p>
@@ -1918,6 +1974,150 @@ export const LandingPage: React.FC = () => {
 
             <div style={{ textAlign: 'center', fontSize: '11.5px', color: 'var(--mute)' }}>
               🔒 256-bit Encrypted Checkout · Instant Cloud Counter Activation · GST ITC Invoice Included
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy & Terms of Service Modal */}
+      {policyModal && (
+        <div
+          className="checkout-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPolicyModal(null);
+          }}
+        >
+          <div className="policy-modal">
+            <button
+              className="checkout-close"
+              onClick={() => setPolicyModal(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18, borderBottom: '1px solid #f4efea', paddingBottom: 14 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: '#fff3ea',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1.5px solid #fed7aa',
+                  flexShrink: 0,
+                }}
+              >
+                <img src="/counter365_icon.png" alt="Counter 365" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+              </div>
+              <div>
+                <h3 style={{ font: '800 20px var(--font-head)', margin: 0, color: 'var(--ink)' }}>
+                  {policyModal === 'privacy' ? 'Privacy Policy' : 'Terms & Conditions'}
+                </h3>
+                <small style={{ color: 'var(--mute)', fontSize: '12px' }}>
+                  Counter 365 · Powered by Tecstellar · Effective 2026
+                </small>
+              </div>
+            </div>
+
+            <div className="policy-body">
+              {policyModal === 'privacy' ? (
+                <>
+                  <h5>1. Overview & Commitment</h5>
+                  <p>
+                    Counter 365, developed and operated by <b>Tecstellar</b> ("we", "us", "our"), provides fast point-of-sale, billing, and counter management solutions for restaurants, cafés, bakeries, juice stalls, and quick-service food businesses. We treat your shop data, financial records, and customer relationships with the highest security standards.
+                  </p>
+
+                  <h5>2. Data We Collect</h5>
+                  <ul>
+                    <li><b>Shop Information:</b> Business name, branch details, tax / GSTIN registration, contact number, and counter configuration.</li>
+                    <li><b>Catalog & Inventory:</b> Menu items, categories, pricing, tax rates, and modifier setups.</li>
+                    <li><b>Transaction & Due Records:</b> Order history, timestamped receipts, payment modes, and customer due balances entered by your staff.</li>
+                    <li><b>Customer Contact Info:</b> Phone numbers and names voluntarily entered at checkout to deliver digital WhatsApp / SMS receipts and track credit balances.</li>
+                  </ul>
+
+                  <h5>3. How Your Data Is Used</h5>
+                  <ul>
+                    <li>To compute bills accurately, format thermal receipts, and sync transactions in real time between your mobile devices and web terminals.</li>
+                    <li>To maintain persistent sales analytics, shift totals, and customer balance books.</li>
+                    <li>We <b>never</b> sell, rent, or trade your data or your customers' contact numbers to third-party advertisers.</li>
+                  </ul>
+
+                  <h5>4. Cloud Security & Storage</h5>
+                  <p>
+                    All communication between your counter terminals and Counter 365 cloud servers is secured via TLS 1.3 with 256-bit encryption. Offline data is stored in tamper-safe local browser storage and synchronizes automatically upon reconnecting to the internet.
+                  </p>
+
+                  <h5>5. Data Control & Deletion</h5>
+                  <p>
+                    You retain total ownership of your commercial data. You may export sales summaries or request permanent deletion of your account and related database records at any time by contacting our support desk.
+                  </p>
+
+                  <h5>6. Contact Our Privacy Team</h5>
+                  <p>
+                    If you have questions regarding privacy or data handling, reach out to us at{' '}
+                    <a href="mailto:support@tecstellar.com" style={{ color: 'var(--o)', fontWeight: 600 }}>
+                      support@tecstellar.com
+                    </a>{' '}
+                    or call <b>+91 88705 00106</b>.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h5>1. Agreement to Terms</h5>
+                  <p>
+                    By registering, accessing, or subscribing to Counter 365 (via web or mobile applications), you agree to be bound by these Terms and Conditions provided by <b>Tecstellar</b>. If you do not agree to these terms, please do not use the software.
+                  </p>
+
+                  <h5>2. License & Service Scope</h5>
+                  <p>
+                    Tecstellar grants you a non-exclusive, non-transferable subscription license to use Counter 365 for your commercial billing and counter operations. Features, device limits, and reporting depth correspond to your active subscription plan (1 Month, 6 Months, or 1 Year).
+                  </p>
+
+                  <h5>3. Merchant Responsibilities</h5>
+                  <ul>
+                    <li>You are solely responsible for ensuring the accuracy of food items, prices, discounts, and GST percentages configured in your system.</li>
+                    <li>You agree to maintain the confidentiality of your login PINs and one-time passwords (OTP).</li>
+                    <li>You warrant that all transactions billed through Counter 365 comply with applicable local commerce and taxation laws.</li>
+                  </ul>
+
+                  <h5>4. Subscription, Pricing & Taxes</h5>
+                  <p>
+                    Subscription fees are prepaid according to the chosen billing cycle. All listed plan prices are subject to statutory Indian Goods and Services Tax (18% GST). Upon payment, you receive a valid GST tax invoice for input tax credit (ITC) claims.
+                  </p>
+
+                  <h5>5. Service Availability & Offline Capability</h5>
+                  <p>
+                    Counter 365 is designed with offline-first billing so your counters never halt during internet drops. While Tecstellar targets 99.9% cloud synchronization uptime, we are not liable for business interruptions caused by hardware failure, network outages, or device-level issues.
+                  </p>
+
+                  <h5>6. Governing Law & Support</h5>
+                  <p>
+                    These terms are governed by the laws of India. For support, customization, or billing inquiries, contact Tecstellar via WhatsApp / phone at <b>+91 88705 00106</b> or email <b>support@tecstellar.com</b>.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid #f4efea', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setPolicyModal(null)}
+                style={{
+                  background: 'var(--o)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '99px',
+                  padding: '10px 24px',
+                  font: '700 13.5px var(--sans)',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(255, 90, 0, 0.25)',
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
