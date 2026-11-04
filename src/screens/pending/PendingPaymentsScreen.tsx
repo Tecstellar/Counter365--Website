@@ -30,7 +30,15 @@ export const PendingPaymentsScreen: React.FC = () => {
     if (!shop?.id) return;
     setIsLoading(true);
     const allBills = await billingService.getBills(shop.id);
-    const dueBills = allBills.filter(b => b.status !== 'cancelled' && b.pendingAmount > 0);
+    const getPending = (b: Bill) => {
+      if (b.status === 'deleted' || b.status === 'cancelled') return 0;
+      if (b.pendingAmount != null && b.pendingAmount > 0) return Number(b.pendingAmount) || 0;
+      if (b.paymentMode === 'Pending' || b.paymentMode === 'Partial Pay') {
+        return Math.max(0, (Number(b.totalAmount) || 0) - (Number(b.paidAmount) || 0));
+      }
+      return 0;
+    };
+    const dueBills = allBills.filter(b => getPending(b) > 0);
     setPendingBills(dueBills);
     setIsLoading(false);
   };
@@ -47,7 +55,12 @@ export const PendingPaymentsScreen: React.FC = () => {
     );
   });
 
-  const totalOutstanding = pendingBills.reduce((sum, b) => sum + b.pendingAmount, 0);
+  const totalOutstanding = pendingBills.reduce((sum, b) => {
+    const p = (b.pendingAmount != null && b.pendingAmount > 0)
+      ? Number(b.pendingAmount)
+      : Math.max(0, (Number(b.totalAmount) || 0) - (Number(b.paidAmount) || 0));
+    return sum + p;
+  }, 0);
 
   const handleOpenCollect = (bill: Bill) => {
     setCollectModalBill(bill);

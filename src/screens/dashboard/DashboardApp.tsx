@@ -568,11 +568,34 @@ Generated via Counter365 Cloud POS`;
     }
   };
 
-  // Financial Totals Calculation (Strictly for TODAY'S trading, excludes deleted bills)
+  // Helper to reliably compute remaining pending amount for any bill
+  const getBillPendingDue = useCallback((b: Bill): number => {
+    if (!b || b.status === 'deleted' || b.status === 'cancelled') return 0;
+    const total = Number(b.totalAmount) || 0;
+    const paid = Number(b.paidAmount) || 0;
+    const explicitPending = Number(b.pendingAmount);
+
+    if (!isNaN(explicitPending) && explicitPending > 0) {
+      return explicitPending;
+    }
+
+    if (b.paymentMode === 'Pending' || b.paymentMode === 'Partial Pay') {
+      return Math.max(0, total - paid);
+    }
+
+    return 0;
+  }, []);
+
+  // All-Time Total Outstanding Pending Khata Balance Across All Customers & Dates
+  const allTimePendingDue = useMemo(() => {
+    return bills.reduce((sum, b) => sum + getBillPendingDue(b), 0);
+  }, [bills, getBillPendingDue]);
+
+  // Financial Totals Calculation (Strictly for TODAY'S trading, but 'due' provides all-time outstanding balance)
   const totals = useMemo(() => {
     let cash = 0;
     let upi = 0;
-    let due = 0;
+    let todayDue = 0;
     const todayDateStr = getTodayISTDateStr();
 
     // Filter strictly to non-deleted bills created TODAY in IST
@@ -583,11 +606,11 @@ Generated via Counter365 Cloud POS`;
 
     todayBills.forEach((b) => {
       const amt = Number(b.totalAmount) || 0;
-      const pending = Number(b.pendingAmount) || 0;
+      const pending = getBillPendingDue(b);
       const paid = Number(b.paidAmount) || 0;
 
       if (b.paymentMode === 'Pending' || pending > 0) {
-        due += pending;
+        todayDue += pending;
         if (paid > 0) {
           cash += paid; // Partial payment received
         }
@@ -614,11 +637,13 @@ Generated via Counter365 Cloud POS`;
       upi,
       sales,
       n: count,
-      due,
+      todayDue,
+      due: allTimePendingDue, // Authoritative all-time outstanding balance
+      allTimeDue: allTimePendingDue,
       exp: expTotal,
       net,
     };
-  }, [bills, expenses]);
+  }, [bills, expenses, allTimePendingDue, getBillPendingDue]);
 
   // Hourly Breakdown (14 buckets: 8 AM to 9 PM strictly for TODAY)
   const hourlyData = useMemo(() => {
@@ -1004,7 +1029,7 @@ Generated via Counter365 Cloud POS`;
 
   // Collect Pending Dues (Supports Partial Collections & Customer Allocations)
   const handleOpenCollectDueModal = (customerName: string, customerPhone?: string, totalDue?: number, bills?: Bill[], targetBill?: Bill) => {
-    const dueAmt = totalDue ?? (targetBill ? (targetBill.pendingAmount || targetBill.totalAmount) : 0);
+    const dueAmt = totalDue ?? (targetBill ? getBillPendingDue(targetBill) : 0);
     setCollectingCustomerDue({
       customerName,
       customerPhone,
@@ -1040,7 +1065,8 @@ Generated via Counter365 Cloud POS`;
 
       for (const b of targetBills) {
         if (remainingToApply <= 0) break;
-        const curPending = Number(b.pendingAmount || b.totalAmount) || 0;
+        const curPending = getBillPendingDue(b);
+        if (curPending <= 0) continue;
         const applyToThisBill = Math.min(remainingToApply, curPending);
 
         await billingService.collectPendingDue(b.id, shop.id, applyToThisBill, collectPayMethod, {
@@ -1050,7 +1076,7 @@ Generated via Counter365 Cloud POS`;
         });
 
         const newPaid = (b.paidAmount || 0) + applyToThisBill;
-        const newPending = Math.max(0, b.totalAmount - newPaid);
+        const newPending = Math.max(0, curPending - applyToThisBill);
 
         updatedBillEntries.push({
           id: b.id,
@@ -1727,8 +1753,8 @@ Generated via Counter365 Cloud POS`;
   const deletedBills = useMemo(() => bills.filter((b) => b.status === 'deleted'), [bills]);
   const editedBills = useMemo(() => bills.filter((b) => b.status === 'edited'), [bills]);
   const dueBills = useMemo(() => {
-    return bills.filter((b) => b.status !== 'deleted' && (b.paymentMode === 'Pending' || (b.pendingAmount || 0) > 0));
-  }, [bills]);
+    return bills.filter((b) => getBillPendingDue(b) > 0);
+  }, [bills, getBillPendingDue]);
 
   // Group pending dues by customer (aggregation & multi-bill dropdown)
   const customerDueGroups = useMemo(() => {
@@ -1745,7 +1771,7 @@ Generated via Counter365 Cloud POS`;
       const name = (b.customerName || 'Walk-in Customer').trim();
       const phone = (b.customerPhone || '').trim();
       const groupKey = phone ? `phone:${phone}` : `name:${name.toLowerCase()}`;
-      const pendingAmt = Number(b.pendingAmount || b.totalAmount) || 0;
+      const pendingAmt = getBillPendingDue(b);
 
       if (!map.has(groupKey)) {
         map.set(groupKey, {
@@ -1764,10 +1790,10 @@ Generated via Counter365 Cloud POS`;
     });
 
     return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
-  }, [dueBills]);
+  }, [dueBills, getBillPendingDue]);
   const paidBills = useMemo(() => {
-    return bills.filter((b) => b.status !== 'deleted' && b.paymentMode !== 'Pending' && (b.pendingAmount || 0) <= 0);
-  }, [bills]);
+    return bills.filter((b) => b.status !== 'deleted' && getBillPendingDue(b) <= 0);
+  }, [bills, getBillPendingDue]);
 
   // Filtered Bills list based on selected filter and search query
   const filteredBills = useMemo(() => {
@@ -1775,7 +1801,7 @@ Generated via Counter365 Cloud POS`;
     return bills.filter((b) => {
       const isDeleted = b.status === 'deleted';
       const isEdited = b.status === 'edited';
-      const isDue = !isDeleted && (b.paymentMode === 'Pending' || (b.pendingAmount || 0) > 0);
+      const isDue = !isDeleted && getBillPendingDue(b) > 0;
       const isPaid = !isDeleted && !isDue;
 
       let matchesFilter = true;
@@ -2454,7 +2480,7 @@ Generated via Counter365 POS Cloud`;
                     <div className="pbar">
                       <i style={{ flex: Math.max(totals.cash, 1), background: 'var(--brand)' }}></i>
                       <i style={{ flex: Math.max(totals.upi, 1), background: 'var(--ind)' }}></i>
-                      <i className="due" style={{ flex: Math.max(totals.due, 1) }}></i>
+                      <i className="due" style={{ flex: Math.max(allTimePendingDue, 1) }}></i>
                     </div>
                     <div className="pl">
                       <p>
@@ -2467,10 +2493,10 @@ Generated via Counter365 POS Cloud`;
                       </p>
                       <p>
                         <i style={{ background: '#ffc29d' }}></i>
-                        <a className="lnk" onClick={() => can('pend') && setTab('khata')}>
+                        <a className="lnk" onClick={() => can('pend') && setTab('khata')} title="View all-time outstanding customer khata dues">
                           Khata still to collect →
                         </a>
-                        <b>{can('total') ? fm(totals.due) : '₹••••'}</b>
+                        <b>{can('total') ? fm(allTimePendingDue) : '₹••••'}</b>
                       </p>
                     </div>
                   </div>
@@ -2516,8 +2542,8 @@ Generated via Counter365 POS Cloud`;
                       <b>{can('total') ? fm(totals.upi) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
-                      <span>{isTamil ? 'நிலுவை கடன்' : 'Pending khata'}</span>
-                      <b style={{ color: totals.due > 0 ? 'var(--brand)' : 'inherit' }}>{can('total') ? fm(totals.due) : '₹••••'}</b>
+                      <span>{isTamil ? 'நிலுவை கடன் (மொத்தம்)' : 'Pending khata (All-time)'}</span>
+                      <b style={{ color: allTimePendingDue > 0 ? 'var(--brand)' : 'inherit' }}>{can('total') ? fm(allTimePendingDue) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'செலவுகள்' : 'Expenses'}</span>
@@ -3445,9 +3471,9 @@ Generated via Counter365 POS Cloud`;
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '18px' }}>
                   <section className="card" style={{ padding: '16px 20px' }}>
                     <span className="lbl">Total Outstanding Balance</span>
-                    <div className="num" style={{ color: '#dc2626' }}>{fm(totals.due)}</div>
+                    <div className="num" style={{ color: '#dc2626' }}>{fm(allTimePendingDue)}</div>
                     <span className="cap">
-                      Across {customerDueGroups.length} customers ({dueBills.length} pending bills)
+                      Across {customerDueGroups.length} {customerDueGroups.length === 1 ? 'customer' : 'customers'} ({dueBills.length} pending {dueBills.length === 1 ? 'bill' : 'bills'} all-time)
                     </span>
                   </section>
                   <section className="card" style={{ padding: '16px 20px' }}>
@@ -3551,7 +3577,7 @@ Generated via Counter365 POS Cloud`;
                           {isExpanded && (
                             <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
                               {grp.bills.map((b) => {
-                                const bDue = Number(b.pendingAmount || b.totalAmount) || 0;
+                                const bDue = getBillPendingDue(b);
                                 return (
                                   <div
                                     key={b.id}

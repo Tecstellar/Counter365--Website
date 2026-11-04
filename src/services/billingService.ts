@@ -105,11 +105,34 @@ export const billingService = {
         .select('*')
         .eq('shop_id', shopId)
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(300);
 
-      if (!error && billRows) {
+      let allBillRows: any[] = (!error && billRows) ? [...billRows] : [];
+
+      // Guarantee all open pending bills across all dates are retrieved
+      try {
+        const { data: openPendingRows } = await (supabase.from('bills') as any)
+          .select('*')
+          .eq('shop_id', shopId)
+          .or('pending_amount.gt.0,payment_mode.eq.Pending,payment_mode.eq.Partial Pay')
+          .neq('status', 'deleted');
+
+        if (openPendingRows && openPendingRows.length > 0) {
+          const existingIds = new Set(allBillRows.map((r: any) => r.id));
+          openPendingRows.forEach((pr: any) => {
+            if (!existingIds.has(pr.id)) {
+              allBillRows.push(pr);
+              existingIds.add(pr.id);
+            }
+          });
+        }
+      } catch (errPending) {
+        console.warn('Notice fetching older pending bills:', errPending);
+      }
+
+      if (allBillRows.length > 0) {
         // Fetch items for recent bills
-        const billIds = billRows.map((b: any) => b.id);
+        const billIds = allBillRows.map((b: any) => b.id);
         let itemsMap: Record<string, BillItemRecord[]> = {};
 
         if (billIds.length > 0) {
@@ -133,53 +156,64 @@ export const billingService = {
           }
         }
 
-        const remoteBills: Bill[] = billRows.map((b: any) => ({
-          id: b.id,
-          shopId: b.shop_id,
-          billNumber: b.bill_number || '#0001',
-          customerId: b.customer_id,
-          customerName: b.customer_name,
-          customerPhone: b.customer_phone,
-          tableNumber: b.table_number,
-          status: b.status || 'completed',
-          subtotal: Number(b.subtotal) || 0,
-          discountType: b.discount_type,
-          discountValue: Number(b.discount_value) || 0,
-          discountAmount: Number(b.discount_amount) || 0,
-          gstRate: Number(b.gst_rate) || 0,
-          gstAmount: Number(b.gst_amount) || 0,
-          totalAmount: Number(b.total_amount) || 0,
-          paidAmount: Number(b.paid_amount) || 0,
-          pendingAmount: Number(b.pending_amount) || 0,
-          cashAmount: b.cash_amount ? Number(b.cash_amount) : undefined,
-          gpayAmount: b.gpay_amount ? Number(b.gpay_amount) : undefined,
-          paymentMode: b.payment_mode || 'Cash',
-          clientOperationId: b.client_operation_id,
-          items: itemsMap[b.id] || [],
-          createdAt: b.created_at,
-          completedAt: b.completed_at || b.created_at,
-          settledAt: b.settled_at || null,
-          initialPaidAmount: b.initial_paid_amount != null ? Number(b.initial_paid_amount) : undefined,
-          collections: Array.isArray(b.collections) ? b.collections : [],
-          createdByName: b.created_by_name,
-          createdByRole: b.created_by_role,
-          createdById: b.created_by_id || null,
-          isEdited: b.is_edited ?? false,
-          editedAt: b.edited_at,
-          editedByName: b.edited_by_name || null,
-          editedByRole: b.edited_by_role || null,
-          editedById: b.edited_by_id || null,
-          isDeleted: b.is_deleted ?? false,
-          deletedAt: b.deleted_at || null,
-          isCancelled: b.is_cancelled ?? false,
-          cancellationReason: b.cancellation_reason,
-          deletedByName: b.deleted_by_name || (b.cancellation_reason && b.cancellation_reason.startsWith('Deleted by ')
-            ? b.cancellation_reason.replace('Deleted by ', '').split(' (')[0]
-            : null),
-          deletedByRole: b.deleted_by_role || (b.cancellation_reason && b.cancellation_reason.includes('(')
-            ? b.cancellation_reason.split('(')[1]?.replace(')', '')
-            : null),
-        }));
+        const remoteBills: Bill[] = allBillRows.map((b: any) => {
+          const totalAmt = Number(b.total_amount) || 0;
+          const paidAmt = Number(b.paid_amount) || 0;
+          let pendingAmt = Number(b.pending_amount) || 0;
+
+          // If pending_amount was not explicitly stored but payment_mode indicates pending
+          if (pendingAmt <= 0 && (b.payment_mode === 'Pending' || b.payment_mode === 'Partial Pay')) {
+            pendingAmt = Math.max(0, totalAmt - paidAmt);
+          }
+
+          return {
+            id: b.id,
+            shopId: b.shop_id,
+            billNumber: b.bill_number || '#0001',
+            customerId: b.customer_id,
+            customerName: b.customer_name,
+            customerPhone: b.customer_phone,
+            tableNumber: b.table_number,
+            status: b.status || 'completed',
+            subtotal: Number(b.subtotal) || 0,
+            discountType: b.discount_type,
+            discountValue: Number(b.discount_value) || 0,
+            discountAmount: Number(b.discount_amount) || 0,
+            gstRate: Number(b.gst_rate) || 0,
+            gstAmount: Number(b.gst_amount) || 0,
+            totalAmount: totalAmt,
+            paidAmount: paidAmt,
+            pendingAmount: pendingAmt,
+            cashAmount: b.cash_amount ? Number(b.cash_amount) : undefined,
+            gpayAmount: b.gpay_amount ? Number(b.gpay_amount) : undefined,
+            paymentMode: b.payment_mode || 'Cash',
+            clientOperationId: b.client_operation_id,
+            items: itemsMap[b.id] || [],
+            createdAt: b.created_at,
+            completedAt: b.completed_at || b.created_at,
+            settledAt: b.settled_at || null,
+            initialPaidAmount: b.initial_paid_amount != null ? Number(b.initial_paid_amount) : undefined,
+            collections: Array.isArray(b.collections) ? b.collections : [],
+            createdByName: b.created_by_name,
+            createdByRole: b.created_by_role,
+            createdById: b.created_by_id || null,
+            isEdited: b.is_edited ?? false,
+            editedAt: b.edited_at,
+            editedByName: b.edited_by_name || null,
+            editedByRole: b.edited_by_role || null,
+            editedById: b.edited_by_id || null,
+            isDeleted: b.is_deleted ?? false,
+            deletedAt: b.deleted_at || null,
+            isCancelled: b.is_cancelled ?? false,
+            cancellationReason: b.cancellation_reason,
+            deletedByName: b.deleted_by_name || (b.cancellation_reason && b.cancellation_reason.startsWith('Deleted by ')
+              ? b.cancellation_reason.replace('Deleted by ', '').split(' (')[0]
+              : null),
+            deletedByRole: b.deleted_by_role || (b.cancellation_reason && b.cancellation_reason.includes('(')
+              ? b.cancellation_reason.split('(')[1]?.replace(')', '')
+              : null),
+          };
+        });
 
         await storage.setObject(key, remoteBills);
         return remoteBills;
