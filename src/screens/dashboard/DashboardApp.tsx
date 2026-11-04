@@ -711,7 +711,407 @@ Generated via Counter365 Cloud POS`;
     return ['All', ...sorted.slice(0, 12)];
   }, [menuItems, categoriesList, categoryMap]);
 
-  // Loading Screen
+  // Bill Categorized Lists (All hooks placed at top before any early return to prevent React #310)
+  const activeBills = useMemo(() => bills.filter((b) => b.status !== 'deleted'), [bills]);
+  const deletedBills = useMemo(() => bills.filter((b) => b.status === 'deleted'), [bills]);
+  const editedBills = useMemo(() => bills.filter((b) => b.status === 'edited'), [bills]);
+  const dueBills = useMemo(() => {
+    return bills.filter((b) => getBillPendingDue(b) > 0);
+  }, [bills, getBillPendingDue]);
+
+  // Group pending dues by customer (aggregation & multi-bill dropdown)
+  const customerDueGroups = useMemo(() => {
+    const map = new Map<string, {
+      key: string;
+      customerId?: string;
+      customerName: string;
+      customerPhone: string;
+      totalDue: number;
+      bills: Bill[];
+    }>();
+
+    dueBills.forEach((b) => {
+      const name = (b.customerName || 'Walk-in Customer').trim();
+      const phone = (b.customerPhone || '').trim();
+      const groupKey = phone ? `phone:${phone}` : `name:${name.toLowerCase()}`;
+      const pendingAmt = getBillPendingDue(b);
+
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          key: groupKey,
+          customerId: b.customerId || undefined,
+          customerName: name,
+          customerPhone: phone,
+          totalDue: 0,
+          bills: [],
+        });
+      }
+
+      const grp = map.get(groupKey)!;
+      grp.totalDue += pendingAmt;
+      grp.bills.push(b);
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
+  }, [dueBills, getBillPendingDue]);
+  const paidBills = useMemo(() => {
+    return bills.filter((b) => b.status !== 'deleted' && getBillPendingDue(b) <= 0);
+  }, [bills, getBillPendingDue]);
+
+  // Filtered Bills list based on selected filter and search query
+  const filteredBills = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return bills.filter((b) => {
+      const isDeleted = b.status === 'deleted';
+      const isEdited = b.status === 'edited';
+      const isDue = !isDeleted && getBillPendingDue(b) > 0;
+      const isPaid = !isDeleted && !isDue;
+
+      let matchesFilter = true;
+      if (billsFilter === 'All') {
+        matchesFilter = !isDeleted;
+      } else if (billsFilter === 'Paid') {
+        matchesFilter = isPaid;
+      } else if (billsFilter === 'Due') {
+        matchesFilter = isDue;
+      } else if (billsFilter === 'Edited') {
+        matchesFilter = isEdited;
+      } else if (billsFilter === 'Deleted') {
+        matchesFilter = isDeleted;
+      }
+
+      const matchesQuery =
+        !q ||
+        (b.customerName || '').toLowerCase().includes(q) ||
+        (b.customerPhone || '').includes(q) ||
+        bn(b.billNumber).toLowerCase().includes(q);
+      return matchesFilter && matchesQuery;
+    });
+  }, [bills, billsFilter, searchQuery]);
+
+  // Shop Registration Date Boundary (Only show data from registered date onwards)
+  const shopRegDate = useMemo(() => {
+    if (shop?.createdAt) {
+      const d = new Date(shop.createdAt);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (bills.length > 0) {
+      const dates = bills
+        .map((b) => b.createdAt)
+        .filter(Boolean)
+        .sort();
+      if (dates[0]) {
+        const d = new Date(dates[0]);
+        if (!isNaN(d.getTime())) return d;
+      }
+    }
+    return new Date(2026, 9, 30); // Default October 30, 2026
+  }, [shop?.createdAt, bills]);
+
+  const shopRegYear = shopRegDate.getFullYear();
+  const shopRegMonth = shopRegDate.getMonth(); // 0 to 11
+  const shopRegDay = shopRegDate.getDate(); // e.g. 30
+
+  // Selected Month Breakdown for Reports
+  const reportYear = reportDate.getFullYear();
+  const reportMonthIdx = reportDate.getMonth();
+  const reportMonthName = reportDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const reportMonthKey = `${reportYear}-${String(reportMonthIdx + 1).padStart(2, '0')}`;
+
+  const isAtOrBeforeRegMonth =
+    reportYear < shopRegYear || (reportYear === shopRegYear && reportMonthIdx <= shopRegMonth);
+
+  const handlePrevReportMonth = () => {
+    if (isAtOrBeforeRegMonth) {
+      showToast(`Registered in ${shopRegDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} · Earlier records not available.`);
+      return;
+    }
+    setReportDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextReportMonth = () => {
+    setReportDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  // Comprehensive Monthly & Day-wise Analytics Memo (Starts from registration date)
+  const monthlyStats = useMemo(() => {
+    const mBills = bills.filter(
+      (b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(reportMonthKey)
+    );
+    const mExp = expenses.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(reportMonthKey));
+
+    let cash = 0;
+    let upi = 0;
+    let pending = 0;
+
+    mBills.forEach((b) => {
+      const amt = Number(b.totalAmount) || 0;
+      const pend = Number(b.pendingAmount) || 0;
+      const paid = Number(b.paidAmount) || 0;
+
+      if (b.paymentMode === 'Pending' || pend > 0) {
+        pending += pend;
+        if (paid > 0) cash += paid;
+      } else if (b.paymentMode === 'GPay') {
+        upi += amt;
+      } else {
+        cash += amt;
+      }
+    });
+
+    const expTotal = mExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const salesTotal = cash + upi;
+    const profitTotal = salesTotal - expTotal;
+
+    // Day-wise stats: strictly start from registration day if in the registration month!
+    const totalDaysInMonth = new Date(reportYear, reportMonthIdx + 1, 0).getDate();
+    const isRegMonth = reportYear === shopRegYear && reportMonthIdx === shopRegMonth;
+    const startDay = isRegMonth ? Math.min(shopRegDay, totalDaysInMonth) : 1;
+
+    const daysArr: Array<{
+      dayNum: number;
+      dateStr: string;
+      weekday: string;
+      isToday: boolean;
+      billsCount: number;
+      sales: number;
+      expense: number;
+      profit: number;
+      bills: Bill[];
+    }> = [];
+
+    const todayDateStr = new Date().toISOString().split('T')[0];
+
+    for (let d = startDay; d <= totalDaysInMonth; d++) {
+      const dayDateStr = `${reportMonthKey}-${String(d).padStart(2, '0')}`;
+      const dayObj = new Date(reportYear, reportMonthIdx, d);
+      const weekday = dayObj.toLocaleDateString('en-IN', { weekday: 'short' });
+      const dayBills = mBills.filter((b) => (b.createdAt || '').startsWith(dayDateStr));
+      const dayExp = mExp.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(dayDateStr));
+
+      let dSales = 0;
+      dayBills.forEach((b) => {
+        const amt = Number(b.totalAmount) || 0;
+        const pend = Number(b.pendingAmount) || 0;
+        const paid = Number(b.paidAmount) || 0;
+        if (b.paymentMode === 'Pending' || pend > 0) {
+          dSales += paid;
+        } else {
+          dSales += amt;
+        }
+      });
+      const dExpAmt = dayExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+      daysArr.push({
+        dayNum: d,
+        dateStr: dayDateStr,
+        weekday,
+        isToday: dayDateStr === todayDateStr,
+        billsCount: dayBills.length,
+        sales: dSales,
+        expense: dExpAmt,
+        profit: dSales - dExpAmt,
+        bills: dayBills,
+      });
+    }
+
+    // Best day calculation
+    let bestDay = { label: 'No sales yet', amount: 0 };
+    daysArr.forEach((d) => {
+      if (d.sales > bestDay.amount) {
+        bestDay = {
+          label: `${d.weekday}, ${d.dayNum} ${reportDate.toLocaleDateString('en-IN', { month: 'short' })}`,
+          amount: d.sales,
+        };
+      }
+    });
+
+    if (bestDay.amount === 0 && totals.sales > 0 && reportMonthKey.startsWith('2026-10')) {
+      bestDay = {
+        label: `Today, 30 Oct`,
+        amount: totals.sales,
+      };
+    }
+
+    // Weekly sales vs expenses
+    const w1 = daysArr.slice(0, 7);
+    const w2 = daysArr.slice(7, 14);
+    const w3 = daysArr.slice(14, 21);
+    const w4 = daysArr.slice(21);
+
+    const calcWeek = (wDays: typeof daysArr) => ({
+      sales: wDays.reduce((s, x) => s + x.sales, 0),
+      expense: wDays.reduce((s, x) => s + x.expense, 0),
+    });
+
+    const weeks = [
+      { name: 'Week 1 (1–7)', ...calcWeek(w1) },
+      { name: 'Week 2 (8–14)', ...calcWeek(w2) },
+      { name: 'Week 3 (15–21)', ...calcWeek(w3) },
+      { name: 'Week 4+ (22+)', ...calcWeek(w4) },
+    ];
+
+    // Product sales count
+    const productCounts: Record<string, { qty: number; revenue: number; category: string }> = {};
+    mBills.forEach((b) => {
+      (b.items || []).forEach((item) => {
+        const name = item.itemName || 'Item';
+        if (!productCounts[name]) {
+          productCounts[name] = { qty: 0, revenue: 0, category: 'Beverage' };
+        }
+        productCounts[name].qty += item.quantity || 1;
+        productCounts[name].revenue += item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
+      });
+    });
+
+    const topProducts = Object.entries(productCounts)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.qty - a.qty);
+
+    // Monthly expenses by category
+    const expenseByCategory: Record<string, number> = {};
+    mExp.forEach((e) => {
+      const cat = e.category || 'Other';
+      expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.amount) || 0);
+    });
+
+    return {
+      bills: mBills,
+      billsCount: mBills.length,
+      sales: salesTotal,
+      expense: expTotal,
+      profit: profitTotal,
+      cash,
+      upi,
+      pending,
+      days: daysArr,
+      bestDay,
+      weeks,
+      topProducts,
+      expenseByCategory,
+    };
+  }, [bills, expenses, reportMonthKey, reportYear, reportMonthIdx, reportDate, totals.sales]);
+
+  // Excel (.csv) Export
+  const handleDownloadExcel = () => {
+    let csv = `Counter365 Monthly Report - ${reportMonthName}\n`;
+    csv += `Shop: ${shop?.name || 'Counter 365'} (${shop?.city || 'Chennai'})\n`;
+    csv += `Total Sales: Rs. ${monthlyStats.sales}, Total Expenses: Rs. ${monthlyStats.expense}, Net Profit: Rs. ${monthlyStats.profit}\n\n`;
+    csv += 'Date,Day,Bills Generated,Total Sales (INR),Total Expense (INR),Net Profit (INR)\n';
+
+    monthlyStats.days.forEach((d) => {
+      csv += `${d.dateStr},${d.weekday},${d.billsCount},${d.sales},${d.expense},${d.profit}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Counter365_Report_${reportMonthName.replace(/\s+/g, '_')}.csv`;
+    link.click();
+    showToast('Excel report (.csv) downloaded successfully!');
+  };
+
+  // WhatsApp Monthly Report
+  const handleSendMonthlyWhatsApp = () => {
+    const text = `📊 *MONTHLY BUSINESS REPORT - ${shop?.name || 'Counter 365'}*
+📅 *Period:* ${reportMonthName}
+📍 *Location:* ${shop?.city || 'Chennai'}
+
+📈 *EXECUTIVE SUMMARY:*
+• Total Sales: ${fm(monthlyStats.sales)}
+• Total Expenses: ${fm(monthlyStats.expense)}
+• Net Profit: ${fm(monthlyStats.profit)}
+• Bills Count: ${monthlyStats.billsCount} bills
+• Best Day: ${monthlyStats.bestDay.label} (${fm(monthlyStats.bestDay.amount)})
+
+💳 *COLLECTIONS & MODES:*
+• Cash in Drawer: ${fm(monthlyStats.cash)}
+• Online / GPay: ${fm(monthlyStats.upi)}
+• Khata Outstanding: ${fm(monthlyStats.pending)}
+
+Generated via Counter365 POS Cloud`;
+
+    const rawPhone = (shop?.phone || profile?.phone || '').replace(/\D/g, '');
+    const targetPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+    const url = targetPhone
+      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+    showToast('Opening WhatsApp monthly statement...');
+  };
+
+  // PDF Print Action
+  const handleDownloadPDF = () => {
+    window.print();
+    showToast('Opening print dialog for PDF export...');
+  };
+
+  // Summary Months Data (Active ledger months strictly from registration date)
+  const summaryMonths = useMemo(() => {
+    const list: Array<{
+      monthKey: string;
+      monthName: string;
+      bills: Bill[];
+      expenses: ExpenseRecord[];
+      sales: number;
+      expense: number;
+      profit: number;
+    }> = [];
+
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+
+    for (let y = curYear; y >= shopRegYear; y--) {
+      const startM = y === curYear ? curMonth : 11;
+      const endM = y === shopRegYear ? shopRegMonth : 0;
+      for (let m = startM; m >= endM; m--) {
+        const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+        const mDate = new Date(y, m, 1);
+        const mName = mDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+        const mBills = bills.filter(
+          (b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(mKey)
+        );
+        const mExp = expenses.filter(
+          (e) => (e.expenseDate || e.createdAt || '').startsWith(mKey)
+        );
+
+        let mSales = 0;
+        mBills.forEach((b) => {
+          const isDue = b.paymentMode === 'Pending' || (b.pendingAmount || 0) > 0;
+          mSales += isDue ? (b.paidAmount || 0) : (Number(b.totalAmount) || 0);
+        });
+        const mExpAmt = mExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+        list.push({
+          monthKey: mKey,
+          monthName: mName,
+          bills: mBills,
+          expenses: mExp,
+          sales: mSales,
+          expense: mExpAmt,
+          profit: mSales - mExpAmt,
+        });
+      }
+    }
+
+    if (list.length === 0) {
+      list.push({
+        monthKey: '2026-10',
+        monthName: 'October 2026',
+        bills,
+        expenses,
+        sales: totals.sales,
+        expense: totals.exp,
+        profit: totals.net,
+      });
+    }
+
+    return list;
+  }, [bills, expenses, shopRegYear, shopRegMonth, totals.sales, totals.exp, totals.net]);
+
+  // Loading & Authentication Guards (Positioned after all React hooks to guarantee identical hook execution order on every render)
   if (isAuthLoading || isShopLoading) {
     return (
       <div className="min-h-screen bg-[#edeef3] flex flex-col items-center justify-center gap-3">
@@ -1748,405 +2148,7 @@ Generated via Counter365 Cloud POS`;
     });
   };
 
-  // Bill Categorized Lists
-  const activeBills = useMemo(() => bills.filter((b) => b.status !== 'deleted'), [bills]);
-  const deletedBills = useMemo(() => bills.filter((b) => b.status === 'deleted'), [bills]);
-  const editedBills = useMemo(() => bills.filter((b) => b.status === 'edited'), [bills]);
-  const dueBills = useMemo(() => {
-    return bills.filter((b) => getBillPendingDue(b) > 0);
-  }, [bills, getBillPendingDue]);
 
-  // Group pending dues by customer (aggregation & multi-bill dropdown)
-  const customerDueGroups = useMemo(() => {
-    const map = new Map<string, {
-      key: string;
-      customerId?: string;
-      customerName: string;
-      customerPhone: string;
-      totalDue: number;
-      bills: Bill[];
-    }>();
-
-    dueBills.forEach((b) => {
-      const name = (b.customerName || 'Walk-in Customer').trim();
-      const phone = (b.customerPhone || '').trim();
-      const groupKey = phone ? `phone:${phone}` : `name:${name.toLowerCase()}`;
-      const pendingAmt = getBillPendingDue(b);
-
-      if (!map.has(groupKey)) {
-        map.set(groupKey, {
-          key: groupKey,
-          customerId: b.customerId || undefined,
-          customerName: name,
-          customerPhone: phone,
-          totalDue: 0,
-          bills: [],
-        });
-      }
-
-      const grp = map.get(groupKey)!;
-      grp.totalDue += pendingAmt;
-      grp.bills.push(b);
-    });
-
-    return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
-  }, [dueBills, getBillPendingDue]);
-  const paidBills = useMemo(() => {
-    return bills.filter((b) => b.status !== 'deleted' && getBillPendingDue(b) <= 0);
-  }, [bills, getBillPendingDue]);
-
-  // Filtered Bills list based on selected filter and search query
-  const filteredBills = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    return bills.filter((b) => {
-      const isDeleted = b.status === 'deleted';
-      const isEdited = b.status === 'edited';
-      const isDue = !isDeleted && getBillPendingDue(b) > 0;
-      const isPaid = !isDeleted && !isDue;
-
-      let matchesFilter = true;
-      if (billsFilter === 'All') {
-        matchesFilter = !isDeleted;
-      } else if (billsFilter === 'Paid') {
-        matchesFilter = isPaid;
-      } else if (billsFilter === 'Due') {
-        matchesFilter = isDue;
-      } else if (billsFilter === 'Edited') {
-        matchesFilter = isEdited;
-      } else if (billsFilter === 'Deleted') {
-        matchesFilter = isDeleted;
-      }
-
-      const matchesQuery =
-        !q ||
-        (b.customerName || '').toLowerCase().includes(q) ||
-        (b.customerPhone || '').includes(q) ||
-        bn(b.billNumber).toLowerCase().includes(q);
-      return matchesFilter && matchesQuery;
-    });
-  }, [bills, billsFilter, searchQuery]);
-
-  // Shop Registration Date Boundary (Only show data from registered date onwards)
-  const shopRegDate = useMemo(() => {
-    if (shop?.createdAt) {
-      const d = new Date(shop.createdAt);
-      if (!isNaN(d.getTime())) return d;
-    }
-    if (bills.length > 0) {
-      const dates = bills
-        .map((b) => b.createdAt)
-        .filter(Boolean)
-        .sort();
-      if (dates[0]) {
-        const d = new Date(dates[0]);
-        if (!isNaN(d.getTime())) return d;
-      }
-    }
-    return new Date(2026, 9, 30); // Default October 30, 2026
-  }, [shop?.createdAt, bills]);
-
-  const shopRegYear = shopRegDate.getFullYear();
-  const shopRegMonth = shopRegDate.getMonth(); // 0 to 11
-  const shopRegDay = shopRegDate.getDate(); // e.g. 30
-
-  // Selected Month Breakdown for Reports
-  const reportYear = reportDate.getFullYear();
-  const reportMonthIdx = reportDate.getMonth();
-  const reportMonthName = reportDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-  const reportMonthKey = `${reportYear}-${String(reportMonthIdx + 1).padStart(2, '0')}`;
-
-  const isAtOrBeforeRegMonth =
-    reportYear < shopRegYear || (reportYear === shopRegYear && reportMonthIdx <= shopRegMonth);
-
-  const handlePrevReportMonth = () => {
-    if (isAtOrBeforeRegMonth) {
-      showToast(`Registered in ${shopRegDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} · Earlier records not available.`);
-      return;
-    }
-    setReportDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
-
-  const handleNextReportMonth = () => {
-    setReportDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
-
-  // Comprehensive Monthly & Day-wise Analytics Memo (Starts from registration date)
-  const monthlyStats = useMemo(() => {
-    const mBills = bills.filter(
-      (b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(reportMonthKey)
-    );
-    const mExp = expenses.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(reportMonthKey));
-
-    let cash = 0;
-    let upi = 0;
-    let pending = 0;
-
-    mBills.forEach((b) => {
-      const amt = Number(b.totalAmount) || 0;
-      const pend = Number(b.pendingAmount) || 0;
-      const paid = Number(b.paidAmount) || 0;
-
-      if (b.paymentMode === 'Pending' || pend > 0) {
-        pending += pend;
-        if (paid > 0) cash += paid;
-      } else if (b.paymentMode === 'GPay') {
-        upi += amt;
-      } else {
-        cash += amt;
-      }
-    });
-
-    const expTotal = mExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const salesTotal = cash + upi;
-    const profitTotal = salesTotal - expTotal;
-
-    // Day-wise stats: strictly start from registration day if in the registration month!
-    const totalDaysInMonth = new Date(reportYear, reportMonthIdx + 1, 0).getDate();
-    const isRegMonth = reportYear === shopRegYear && reportMonthIdx === shopRegMonth;
-    const startDay = isRegMonth ? Math.min(shopRegDay, totalDaysInMonth) : 1;
-
-    const daysArr: Array<{
-      dayNum: number;
-      dateStr: string;
-      weekday: string;
-      isToday: boolean;
-      billsCount: number;
-      sales: number;
-      expense: number;
-      profit: number;
-      bills: Bill[];
-    }> = [];
-
-    const todayDateStr = new Date().toISOString().split('T')[0];
-
-    for (let d = startDay; d <= totalDaysInMonth; d++) {
-      const dayDateStr = `${reportMonthKey}-${String(d).padStart(2, '0')}`;
-      const dayObj = new Date(reportYear, reportMonthIdx, d);
-      const weekday = dayObj.toLocaleDateString('en-IN', { weekday: 'short' });
-      const dayBills = mBills.filter((b) => (b.createdAt || '').startsWith(dayDateStr));
-      const dayExp = mExp.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(dayDateStr));
-
-      let dSales = 0;
-      dayBills.forEach((b) => {
-        const amt = Number(b.totalAmount) || 0;
-        const pend = Number(b.pendingAmount) || 0;
-        const paid = Number(b.paidAmount) || 0;
-        if (b.paymentMode === 'Pending' || pend > 0) {
-          dSales += paid;
-        } else {
-          dSales += amt;
-        }
-      });
-      const dExpAmt = dayExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-      daysArr.push({
-        dayNum: d,
-        dateStr: dayDateStr,
-        weekday,
-        isToday: dayDateStr === todayDateStr,
-        billsCount: dayBills.length,
-        sales: dSales,
-        expense: dExpAmt,
-        profit: dSales - dExpAmt,
-        bills: dayBills,
-      });
-    }
-
-    // Best day calculation
-    let bestDay = { label: 'No sales yet', amount: 0 };
-    daysArr.forEach((d) => {
-      if (d.sales > bestDay.amount) {
-        bestDay = {
-          label: `${d.weekday}, ${d.dayNum} ${reportDate.toLocaleDateString('en-IN', { month: 'short' })}`,
-          amount: d.sales,
-        };
-      }
-    });
-
-    if (bestDay.amount === 0 && totals.sales > 0 && reportMonthKey.startsWith('2026-10')) {
-      bestDay = {
-        label: `Today, 30 Oct`,
-        amount: totals.sales,
-      };
-    }
-
-    // Weekly sales vs expenses
-    const w1 = daysArr.slice(0, 7);
-    const w2 = daysArr.slice(7, 14);
-    const w3 = daysArr.slice(14, 21);
-    const w4 = daysArr.slice(21);
-
-    const calcWeek = (wDays: typeof daysArr) => ({
-      sales: wDays.reduce((s, x) => s + x.sales, 0),
-      expense: wDays.reduce((s, x) => s + x.expense, 0),
-    });
-
-    const weeks = [
-      { name: 'Week 1 (1–7)', ...calcWeek(w1) },
-      { name: 'Week 2 (8–14)', ...calcWeek(w2) },
-      { name: 'Week 3 (15–21)', ...calcWeek(w3) },
-      { name: 'Week 4+ (22+)', ...calcWeek(w4) },
-    ];
-
-    // Product sales count
-    const productCounts: Record<string, { qty: number; revenue: number; category: string }> = {};
-    mBills.forEach((b) => {
-      (b.items || []).forEach((item) => {
-        const name = item.itemName || 'Item';
-        if (!productCounts[name]) {
-          productCounts[name] = { qty: 0, revenue: 0, category: 'Beverage' };
-        }
-        productCounts[name].qty += item.quantity || 1;
-        productCounts[name].revenue += item.lineTotal || (item.unitPrice || 0) * (item.quantity || 1);
-      });
-    });
-
-    const topProducts = Object.entries(productCounts)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.qty - a.qty);
-
-    // Monthly expenses by category
-    const expenseByCategory: Record<string, number> = {};
-    mExp.forEach((e) => {
-      const cat = e.category || 'Other';
-      expenseByCategory[cat] = (expenseByCategory[cat] || 0) + (Number(e.amount) || 0);
-    });
-
-    return {
-      bills: mBills,
-      billsCount: mBills.length,
-      sales: salesTotal,
-      expense: expTotal,
-      profit: profitTotal,
-      cash,
-      upi,
-      pending,
-      days: daysArr,
-      bestDay,
-      weeks,
-      topProducts,
-      expenseByCategory,
-    };
-  }, [bills, expenses, reportMonthKey, reportYear, reportMonthIdx, reportDate, totals.sales]);
-
-  // Excel (.csv) Export
-  const handleDownloadExcel = () => {
-    let csv = `Counter365 Monthly Report - ${reportMonthName}\n`;
-    csv += `Shop: ${shop?.name || 'Counter 365'} (${shop?.city || 'Chennai'})\n`;
-    csv += `Total Sales: Rs. ${monthlyStats.sales}, Total Expenses: Rs. ${monthlyStats.expense}, Net Profit: Rs. ${monthlyStats.profit}\n\n`;
-    csv += 'Date,Day,Bills Generated,Total Sales (INR),Total Expense (INR),Net Profit (INR)\n';
-
-    monthlyStats.days.forEach((d) => {
-      csv += `${d.dateStr},${d.weekday},${d.billsCount},${d.sales},${d.expense},${d.profit}\n`;
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Counter365_Report_${reportMonthName.replace(/\s+/g, '_')}.csv`;
-    link.click();
-    showToast('Excel report (.csv) downloaded successfully!');
-  };
-
-  // WhatsApp Monthly Report
-  const handleSendMonthlyWhatsApp = () => {
-    const text = `📊 *MONTHLY BUSINESS REPORT - ${shop?.name || 'Counter 365'}*
-📅 *Period:* ${reportMonthName}
-📍 *Location:* ${shop?.city || 'Chennai'}
-
-📈 *EXECUTIVE SUMMARY:*
-• Total Sales: ${fm(monthlyStats.sales)}
-• Total Expenses: ${fm(monthlyStats.expense)}
-• Net Profit: ${fm(monthlyStats.profit)}
-• Bills Count: ${monthlyStats.billsCount} bills
-• Best Day: ${monthlyStats.bestDay.label} (${fm(monthlyStats.bestDay.amount)})
-
-💳 *COLLECTIONS & MODES:*
-• Cash in Drawer: ${fm(monthlyStats.cash)}
-• Online / GPay: ${fm(monthlyStats.upi)}
-• Khata Outstanding: ${fm(monthlyStats.pending)}
-
-Generated via Counter365 POS Cloud`;
-
-    const rawPhone = (shop?.phone || profile?.phone || '').replace(/\D/g, '');
-    const targetPhone = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
-    const url = targetPhone
-      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`
-      : `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-    showToast('Opening WhatsApp monthly statement...');
-  };
-
-  // PDF Print Action
-  const handleDownloadPDF = () => {
-    window.print();
-    showToast('Opening print dialog for PDF export...');
-  };
-
-  // Summary Months Data (Active ledger months strictly from registration date)
-  const summaryMonths = useMemo(() => {
-    const list: Array<{
-      monthKey: string;
-      monthName: string;
-      bills: Bill[];
-      expenses: ExpenseRecord[];
-      sales: number;
-      expense: number;
-      profit: number;
-    }> = [];
-
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth();
-
-    for (let y = curYear; y >= shopRegYear; y--) {
-      const startM = y === curYear ? curMonth : 11;
-      const endM = y === shopRegYear ? shopRegMonth : 0;
-      for (let m = startM; m >= endM; m--) {
-        const mKey = `${y}-${String(m + 1).padStart(2, '0')}`;
-        const mDate = new Date(y, m, 1);
-        const mName = mDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-        const mBills = bills.filter(
-          (b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(mKey)
-        );
-        const mExp = expenses.filter(
-          (e) => (e.expenseDate || e.createdAt || '').startsWith(mKey)
-        );
-
-        let mSales = 0;
-        mBills.forEach((b) => {
-          const isDue = b.paymentMode === 'Pending' || (b.pendingAmount || 0) > 0;
-          mSales += isDue ? (b.paidAmount || 0) : (Number(b.totalAmount) || 0);
-        });
-        const mExpAmt = mExp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-        list.push({
-          monthKey: mKey,
-          monthName: mName,
-          bills: mBills,
-          expenses: mExp,
-          sales: mSales,
-          expense: mExpAmt,
-          profit: mSales - mExpAmt,
-        });
-      }
-    }
-
-    if (list.length === 0) {
-      list.push({
-        monthKey: '2026-10',
-        monthName: 'October 2026',
-        bills,
-        expenses,
-        sales: totals.sales,
-        expense: totals.exp,
-        profit: totals.net,
-      });
-    }
-
-    return list;
-  }, [bills, expenses, shopRegYear, shopRegMonth, totals.sales, totals.exp, totals.net]);
 
   return (
     <div className={`c365-dashboard ${theme === 'dark' ? 'theme-dark' : ''}`}>
