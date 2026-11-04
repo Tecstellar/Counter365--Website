@@ -672,7 +672,7 @@ Generated via Counter365 Cloud POS`;
     [getBillPendingDue]
   );
 
-  // Dynamic Multi-Period Chart Data (Today, Weekly, Monthly, Yearly, Custom)
+  // Dynamic Multi-Period Chart & Financial Data (Today, Weekly, Monthly, Yearly, Custom)
   const periodChartSummary = useMemo(() => {
     const todayDateStr = getTodayISTDateStr();
     const now = new Date();
@@ -690,22 +690,33 @@ Generated via Counter365 Cloud POS`;
     let slices: PeriodSlice[] = [];
     let periodGoal = 20000;
     let periodTitle = 'Today so far';
+    let takeHomeTitle = 'Today’s take-home';
+    let summaryTitle = "Today's summary";
+    let summaryBillsLabel = 'bills today';
+    let periodBills: Bill[] = [];
+    let periodExpenses: ExpenseRecord[] = [];
 
     if (chartPeriod === 'today') {
       periodTitle = 'Today so far';
+      takeHomeTitle = 'Today’s take-home';
+      summaryTitle = "Today's summary";
+      summaryBillsLabel = 'bills today';
       periodGoal = 20000;
+      periodBills = bills.filter((b) => b.status !== 'deleted' && isTodayIST(b.createdAt, todayDateStr));
+      periodExpenses = expenses.filter(
+        (e) => (e.expenseDate && e.expenseDate === todayDateStr) || isTodayIST(e.createdAt, todayDateStr)
+      );
+
       const buckets = Array.from({ length: 14 }).map(() => ({ val: 0, count: 0 }));
       const curHourIdx = Math.max(0, Math.min(13, now.getHours() - 8));
 
-      bills.forEach((b) => {
-        if (b.status !== 'deleted' && isTodayIST(b.createdAt, todayDateStr)) {
-          const d = new Date(b.createdAt);
-          const hour = d.getHours();
-          const bucketIdx = hour - 8;
-          if (bucketIdx >= 0 && bucketIdx < 14) {
-            buckets[bucketIdx].val += getBillEffectiveSales(b);
-            buckets[bucketIdx].count += 1;
-          }
+      periodBills.forEach((b) => {
+        const d = new Date(b.createdAt);
+        const hour = d.getHours();
+        const bucketIdx = hour - 8;
+        if (bucketIdx >= 0 && bucketIdx < 14) {
+          buckets[bucketIdx].val += getBillEffectiveSales(b);
+          buckets[bucketIdx].count += 1;
         }
       });
 
@@ -726,11 +737,28 @@ Generated via Counter365 Cloud POS`;
       });
     } else if (chartPeriod === 'weekly') {
       periodTitle = "This week's sales";
+      takeHomeTitle = 'This week’s take-home';
+      summaryTitle = "This week's summary";
+      summaryBillsLabel = 'bills this week';
       periodGoal = 140000;
       const curDayOfWeekIdx = (now.getDay() + 6) % 7; // 0 = Mon, 6 = Sun
       const monday = new Date(now);
       monday.setDate(now.getDate() - curDayOfWeekIdx);
       monday.setHours(0, 0, 0, 0);
+      const monStr = monday.toISOString().split('T')[0];
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const sunStr = sunday.toISOString().split('T')[0];
+
+      periodBills = bills.filter((b) => {
+        if (b.status === 'deleted') return false;
+        const d = (b.createdAt || '').slice(0, 10);
+        return d >= monStr && d <= sunStr;
+      });
+      periodExpenses = expenses.filter((e) => {
+        const d = (e.expenseDate || e.createdAt || '').slice(0, 10);
+        return d >= monStr && d <= sunStr;
+      });
 
       const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const weekFullDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -746,8 +774,8 @@ Generated via Counter365 Cloud POS`;
 
         let val = 0;
         let count = 0;
-        bills.forEach((b) => {
-          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+        periodBills.forEach((b) => {
+          if ((b.createdAt || '').startsWith(dateStr)) {
             val += getBillEffectiveSales(b);
             count += 1;
           }
@@ -770,19 +798,26 @@ Generated via Counter365 Cloud POS`;
       const curDay = now.getDate();
       const monthName = now.toLocaleDateString('en-IN', { month: 'short' });
       const monthFullName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      const curMonthKey = `${year}-${String(monthIdx + 1).padStart(2, '0')}`;
 
       periodTitle = `${monthFullName} sales`;
+      takeHomeTitle = 'This month’s take-home';
+      summaryTitle = `${monthFullName} summary`;
+      summaryBillsLabel = 'bills this month';
       periodGoal = totalDays * 20000;
 
+      periodBills = bills.filter((b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(curMonthKey));
+      periodExpenses = expenses.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(curMonthKey));
+
       for (let d = 1; d <= totalDays; d++) {
-        const dateStr = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dateStr = `${curMonthKey}-${String(d).padStart(2, '0')}`;
         const dObj = new Date(year, monthIdx, d);
         const weekday = dObj.toLocaleDateString('en-IN', { weekday: 'short' });
 
         let val = 0;
         let count = 0;
-        bills.forEach((b) => {
-          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+        periodBills.forEach((b) => {
+          if ((b.createdAt || '').startsWith(dateStr)) {
             val += getBillEffectiveSales(b);
             count += 1;
           }
@@ -801,8 +836,16 @@ Generated via Counter365 Cloud POS`;
     } else if (chartPeriod === 'yearly') {
       const year = now.getFullYear();
       const curMonth = now.getMonth();
+      const curYearKey = `${year}-`;
+
       periodTitle = `${year} annual sales`;
+      takeHomeTitle = 'This year’s take-home';
+      summaryTitle = `${year} annual summary`;
+      summaryBillsLabel = 'bills this year';
       periodGoal = 20000 * 365;
+
+      periodBills = bills.filter((b) => b.status !== 'deleted' && (b.createdAt || '').startsWith(curYearKey));
+      periodExpenses = expenses.filter((e) => (e.expenseDate || e.createdAt || '').startsWith(curYearKey));
 
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthFullNames = [
@@ -814,8 +857,8 @@ Generated via Counter365 Cloud POS`;
         const monthKey = `${year}-${String(i + 1).padStart(2, '0')}`;
         let val = 0;
         let count = 0;
-        bills.forEach((b) => {
-          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(monthKey)) {
+        periodBills.forEach((b) => {
+          if ((b.createdAt || '').startsWith(monthKey)) {
             val += getBillEffectiveSales(b);
             count += 1;
           }
@@ -834,11 +877,26 @@ Generated via Counter365 Cloud POS`;
     } else if (chartPeriod === 'custom') {
       const start = new Date(customStartDate || todayDateStr);
       const end = new Date(customEndDate || todayDateStr);
+      const startStr = customStartDate || todayDateStr;
+      const endStr = customEndDate || todayDateStr;
       const diffMs = Math.max(0, end.getTime() - start.getTime());
       const diffDays = Math.min(62, Math.max(1, Math.round(diffMs / (1000 * 3600 * 24)) + 1));
 
       periodTitle = `Custom period (${diffDays} days)`;
+      takeHomeTitle = 'Period take-home';
+      summaryTitle = 'Period summary';
+      summaryBillsLabel = 'bills in period';
       periodGoal = diffDays * 20000;
+
+      periodBills = bills.filter((b) => {
+        if (b.status === 'deleted') return false;
+        const d = (b.createdAt || '').slice(0, 10);
+        return d >= startStr && d <= endStr;
+      });
+      periodExpenses = expenses.filter((e) => {
+        const d = (e.expenseDate || e.createdAt || '').slice(0, 10);
+        return d >= startStr && d <= endStr;
+      });
 
       for (let i = 0; i < diffDays; i++) {
         const dayDate = new Date(start);
@@ -852,8 +910,8 @@ Generated via Counter365 Cloud POS`;
 
         let val = 0;
         let count = 0;
-        bills.forEach((b) => {
-          if (b.status !== 'deleted' && (b.createdAt || '').startsWith(dateStr)) {
+        periodBills.forEach((b) => {
+          if ((b.createdAt || '').startsWith(dateStr)) {
             val += getBillEffectiveSales(b);
             count += 1;
           }
@@ -871,10 +929,33 @@ Generated via Counter365 Cloud POS`;
       }
     }
 
-    const totalSales = slices.reduce((sum, s) => sum + s.value, 0);
-    const totalBills = slices.reduce((sum, s) => sum + s.billsCount, 0);
-    const avgBill = totalBills > 0 ? Math.round(totalSales / totalBills) : 0;
-    const goalPct = Math.min(100, (totalSales / Math.max(periodGoal, 1)) * 100);
+    // Financial breakdown for selected period
+    let periodCash = 0;
+    let periodUpi = 0;
+    let periodDue = 0;
+
+    periodBills.forEach((b) => {
+      const amt = Number(b.totalAmount) || 0;
+      const pending = getBillPendingDue(b);
+      const paid = Number(b.paidAmount) || 0;
+
+      if (b.paymentMode === 'Pending' || pending > 0) {
+        periodDue += pending;
+        if (paid > 0) periodCash += paid;
+      } else if (b.paymentMode === 'GPay') {
+        periodUpi += amt;
+      } else if (b.paymentMode === 'Cash + GPay') {
+        periodCash += Number(b.cashAmount) || 0;
+        periodUpi += Number(b.gpayAmount) || Math.max(0, amt - (Number(b.cashAmount) || 0));
+      } else {
+        periodCash += amt;
+      }
+    });
+
+    const periodSales = periodCash + periodUpi;
+    const expTotal = periodExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const periodNet = periodSales - expTotal;
+    const goalPct = Math.min(100, (periodSales / Math.max(periodGoal, 1)) * 100);
 
     // Peak slice calculation
     const peakSlice = slices.reduce(
@@ -906,16 +987,25 @@ Generated via Counter365 Cloud POS`;
     return {
       period: chartPeriod,
       title: periodTitle,
+      takeHomeTitle,
+      summaryTitle,
+      summaryBillsLabel,
       slices,
-      totalSales,
-      totalBills,
-      avgBill,
+      cash: periodCash,
+      upi: periodUpi,
+      sales: periodSales,
+      exp: expTotal,
+      net: periodNet,
+      due: periodDue,
+      totalSales: periodSales,
+      totalBills: periodBills.length,
+      avgBill: periodBills.length > 0 ? Math.round(periodSales / periodBills.length) : 0,
       goal: periodGoal,
       goalPct,
       peakSlice,
       caption,
     };
-  }, [bills, chartPeriod, customStartDate, customEndDate, getBillEffectiveSales, isTodayIST, getTodayISTDateStr]);
+  }, [bills, expenses, chartPeriod, customStartDate, customEndDate, getBillEffectiveSales, getBillPendingDue, isTodayIST, getTodayISTDateStr]);
 
   // Hourly Breakdown (14 buckets: 8 AM to 9 PM strictly for TODAY)
   const hourlyData = useMemo(() => {
@@ -2755,7 +2845,7 @@ Generated via Counter365 POS Cloud`;
               <div className="hm">
                 {/* Multi-Period Radial Chart Stage */}
                 <section>
-                  {/* Period Slider Control */}
+                  {/* Period Slider Control (Clean Typography, No Icons, Compact) */}
                   <div className="chart-period-container">
                     <div className="chart-period-slider" role="tablist" aria-label="Chart period filter">
                       <button
@@ -2766,7 +2856,6 @@ Generated via Counter365 POS Cloud`;
                           setHoveredSliceIdx(null);
                         }}
                       >
-                        <Clock size={13} />
                         Today
                       </button>
                       <button
@@ -2777,7 +2866,6 @@ Generated via Counter365 POS Cloud`;
                           setHoveredSliceIdx(null);
                         }}
                       >
-                        <CalendarDays size={13} />
                         Weekly
                       </button>
                       <button
@@ -2788,7 +2876,6 @@ Generated via Counter365 POS Cloud`;
                           setHoveredSliceIdx(null);
                         }}
                       >
-                        <Calendar size={13} />
                         Monthly
                       </button>
                       <button
@@ -2799,7 +2886,6 @@ Generated via Counter365 POS Cloud`;
                           setHoveredSliceIdx(null);
                         }}
                       >
-                        <BarChart3 size={13} />
                         Yearly
                       </button>
                       <button
@@ -2810,7 +2896,6 @@ Generated via Counter365 POS Cloud`;
                           setHoveredSliceIdx(null);
                         }}
                       >
-                        <Sparkles size={13} />
                         Custom
                       </button>
                     </div>
@@ -2896,23 +2981,23 @@ Generated via Counter365 POS Cloud`;
                   </p>
                 </section>
 
-                {/* Where the Money Is & Today's Take-Home */}
+                {/* Where the Money Is & Selected Period Take-Home */}
                 <section className="mc">
                   <div>
                     <span className="lbl">Where the money is</span>
                     <div className="pbar">
-                      <i style={{ flex: Math.max(totals.cash, 1), background: 'var(--brand)' }}></i>
-                      <i style={{ flex: Math.max(totals.upi, 1), background: 'var(--ind)' }}></i>
+                      <i style={{ flex: Math.max(periodChartSummary.cash, 1), background: 'var(--brand)' }}></i>
+                      <i style={{ flex: Math.max(periodChartSummary.upi, 1), background: 'var(--ind)' }}></i>
                       <i className="due" style={{ flex: Math.max(allTimePendingDue, 1) }}></i>
                     </div>
                     <div className="pl">
                       <p>
                         <i style={{ background: 'var(--brand)' }}></i>Cash in drawer
-                        <b>{can('total') ? fm(totals.cash) : '₹••••'}</b>
+                        <b>{can('total') ? fm(periodChartSummary.cash) : '₹••••'}</b>
                       </p>
                       <p>
                         <i style={{ background: 'var(--ind)' }}></i>GPay / UPI
-                        <b>{can('total') ? fm(totals.upi) : '₹••••'}</b>
+                        <b>{can('total') ? fm(periodChartSummary.upi) : '₹••••'}</b>
                       </p>
                       <p>
                         <i style={{ background: '#ffc29d' }}></i>
@@ -2925,44 +3010,52 @@ Generated via Counter365 POS Cloud`;
                   </div>
 
                   <div>
-                    <span className="lbl">Today’s take-home</span>
+                    <span className="lbl">{periodChartSummary.takeHomeTitle}</span>
                     <div className="lg">
                       <p>
-                        Sales<b>{can('total') ? fm(totals.sales) : '₹••••'}</b>
+                        Sales<b>{can('total') ? fm(periodChartSummary.sales) : '₹••••'}</b>
                       </p>
                       <p>
                         <a className="lnk" onClick={() => can('exp') && setTab('exp')}>
                           Expenses →
                         </a>
-                        <b>{can('total') ? `− ${fm(totals.exp)}` : '₹••••'}</b>
+                        <b>{can('total') ? `− ${fm(periodChartSummary.exp)}` : '₹••••'}</b>
                       </p>
                       <p className="net">
-                        Net profit<b>{can('total') ? fm(totals.net) : '₹••••'}</b>
+                        Net profit<b>{can('total') ? fm(periodChartSummary.net) : '₹••••'}</b>
                       </p>
                     </div>
                   </div>
                 </section>
 
-                {/* Right Today's Summary & Till Tape */}
+                {/* Right Period Summary & Till Tape */}
                 <aside className="card tape">
                   <div className="top">
-                    <span className="h3">{isTamil ? 'இன்றைய சுருக்கம்' : "Today's summary"}</span>
-                    <span className="cap">{totals.n} {isTamil ? 'பில்கள்' : 'bills today'}</span>
+                    <span className="h3">
+                      {isTamil
+                        ? chartPeriod === 'today'
+                          ? 'இன்றைய சுருக்கம்'
+                          : 'கால சுருக்கம்'
+                        : periodChartSummary.summaryTitle}
+                    </span>
+                    <span className="cap">
+                      {periodChartSummary.totalBills} {isTamil ? 'பில்கள்' : periodChartSummary.summaryBillsLabel}
+                    </span>
                   </div>
 
-                  {/* Complete Day Summary Breakdown */}
+                  {/* Complete Day / Period Summary Breakdown */}
                   <div className="slip" style={{ marginTop: '14px', marginBottom: '14px' }}>
                     <p style={{ borderTop: 0, padding: '7px 0' }}>
                       <span>{isTamil ? 'மொத்த விற்பனை' : 'Total sales'}</span>
-                      <b>{can('total') ? fm(totals.sales) : '₹••••'}</b>
+                      <b>{can('total') ? fm(periodChartSummary.sales) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'பெட்டி ரொக்கம்' : 'Cash in drawer'}</span>
-                      <b>{can('total') ? fm(totals.cash) : '₹••••'}</b>
+                      <b>{can('total') ? fm(periodChartSummary.cash) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'ஜிபே / UPI' : 'GPay / UPI'}</span>
-                      <b>{can('total') ? fm(totals.upi) : '₹••••'}</b>
+                      <b>{can('total') ? fm(periodChartSummary.upi) : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'நிலுவை கடன் (மொத்தம்)' : 'Pending khata (All-time)'}</span>
@@ -2970,11 +3063,11 @@ Generated via Counter365 POS Cloud`;
                     </p>
                     <p style={{ padding: '7px 0' }}>
                       <span>{isTamil ? 'செலவுகள்' : 'Expenses'}</span>
-                      <b>{can('total') ? `− ${fm(totals.exp)}` : '₹••••'}</b>
+                      <b>{can('total') ? `− ${fm(periodChartSummary.exp)}` : '₹••••'}</b>
                     </p>
                     <p style={{ padding: '10px 0 6px', borderTop: '2px solid var(--ink)', font: '600 17px var(--head)' }}>
                       <span style={{ color: 'var(--ink)' }}>{isTamil ? 'நிகர லாபம்' : 'Net profit'}</span>
-                      <b style={{ color: 'var(--brand)', fontSize: '20px' }}>{can('total') ? fm(totals.net) : '₹••••'}</b>
+                      <b style={{ color: 'var(--brand)', fontSize: '20px' }}>{can('total') ? fm(periodChartSummary.net) : '₹••••'}</b>
                     </p>
                   </div>
 
