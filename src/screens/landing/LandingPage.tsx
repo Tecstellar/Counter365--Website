@@ -1871,10 +1871,10 @@ export const LandingPage: React.FC = () => {
                 href="https://counter365-admin.tecstellar.com/"
                 target="_blank"
                 rel="noreferrer"
-                style={{ letterSpacing: '0.06em', fontWeight: 600, fontSize: '0.82rem' }}
-                title="Counter365 Admin Dashboard"
+                style={{ letterSpacing: '0.02em', fontWeight: 600, fontSize: '0.84rem' }}
+                title="Counter365 Admin Login"
               >
-                ADMIN
+                Admin login
               </a>
               <span style={{ opacity: 0.35 }}>·</span>
               <a className="fl" href="#top">
