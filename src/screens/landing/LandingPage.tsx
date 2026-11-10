@@ -1167,8 +1167,7 @@ export const LandingPage: React.FC = () => {
         /* Bottom Bar */
         .fb {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
+          flex-direction: column;
           gap: 16px;
           border-top: 1px solid rgba(255, 255, 255, 0.09);
           padding-top: 20px;
@@ -1177,24 +1176,36 @@ export const LandingPage: React.FC = () => {
           z-index: 3;
         }
 
+        .fb-main-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          gap: 16px;
+        }
+
         .fb-left {
           display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 6px;
+          align-items: center;
+          gap: 8px;
           color: #8c8275;
           font-size: 0.82rem;
           letter-spacing: -0.01em;
-        }
-
-        .fb-center {
-          display: none;
+          flex-wrap: wrap;
         }
 
         .fb-right {
           display: flex;
           align-items: center;
           gap: 12px;
+        }
+
+        .fb-center-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding-top: 2px;
         }
 
         /* Powered by Tecstellar Badge */
@@ -2284,17 +2295,37 @@ export const LandingPage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Bar: Left (Copyright + Powered by Tecstellar below it) | Right (Back to top) */}
+          {/* Bottom Bar: Row 1 (Copyright & Back to Top) | Row 2 Below it (Bottom Center: Powered by Tecstellar) */}
           <div className="fb">
-            <div className="fb-left">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <div className="fb-main-row">
+              <div className="fb-left">
                 <span>© 2026 Counter 365.</span>
                 <span style={{ opacity: 0.35 }}>·</span>
                 <span>Made with ☕ for counters everywhere</span>
               </div>
 
-              {/* Powered by Tecstellar Container (Compact, positioned below 2026 Counter 365) */}
-              <div className="ft-powered-block" style={{ marginTop: '4px' }}>
+              <div className="fb-right">
+                <a
+                  className="ft-back-to-top"
+                  href="#top"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  title="Back to top"
+                  aria-label="Back to top"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Bottom Center Container (Below 2026 Counter 365) */}
+            <div className="fb-center-row">
+              <div className="ft-powered-block">
                 <span className="ft-powered-txt">Powered by</span>
                 <a
                   href="https://tecstellar.com"
@@ -2324,24 +2355,6 @@ export const LandingPage: React.FC = () => {
                   </svg>
                 </a>
               </div>
-            </div>
-
-            <div className="fb-right">
-              <a
-                className="ft-back-to-top"
-                href="#top"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                title="Back to top"
-                aria-label="Back to top"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5" />
-                  <polyline points="5 12 12 5 19 12" />
-                </svg>
-              </a>
             </div>
           </div>
         </div>
