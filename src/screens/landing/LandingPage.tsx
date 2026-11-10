@@ -1350,17 +1350,23 @@ export const LandingPage: React.FC = () => {
         .ft-back-to-top {
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          color: #8c8275;
-          font-size: 0.82rem;
-          font-weight: 500;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #a3988b;
           text-decoration: none;
           cursor: pointer;
-          transition: color 0.18s;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .ft-back-to-top:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 122, 41, 0.55);
           color: #ffffff;
+          transform: translateY(-2px);
         }
 
         .fl { color: #fff; text-decoration: none; }
@@ -2328,7 +2334,7 @@ export const LandingPage: React.FC = () => {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Counter 365 Admin Login ↗
+                    Admin Login ↗
                   </a>
                 </li>
                 <li style={{ marginTop: '6px' }}>
@@ -2390,16 +2396,6 @@ export const LandingPage: React.FC = () => {
 
             <div className="fb-right">
               <a
-                className="ft-admin-pill"
-                href="https://counter365-admin.tecstellar.com/"
-                target="_blank"
-                rel="noreferrer"
-                title="Counter365 Admin Login"
-              >
-                Admin login
-              </a>
-              <span style={{ opacity: 0.3 }}>·</span>
-              <a
                 className="ft-back-to-top"
                 href="#top"
                 onClick={(e) => {
@@ -2407,8 +2403,12 @@ export const LandingPage: React.FC = () => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 title="Back to top"
+                aria-label="Back to top"
               >
-                Back to top ↑
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
               </a>
             </div>
           </div>
