@@ -1146,6 +1146,46 @@ export const LandingPage: React.FC = () => {
           margin: 2px 0 0;
         }
 
+        /* Stacked & Responsive Store Badges in Footer */
+        .ft-stores-col {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          width: 100%;
+          max-width: 240px;
+          margin-top: 14px;
+        }
+
+        .ft-store-btn {
+          display: inline-flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          width: 100% !important;
+          max-width: 240px !important;
+          box-sizing: border-box !important;
+          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid rgba(255, 255, 255, 0.15) !important;
+          padding: 9px 15px !important;
+          border-radius: 12px !important;
+          text-decoration: none !important;
+          color: #FFFFFF !important;
+          transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+          cursor: pointer !important;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .ft-store-btn:hover {
+          background: rgba(255, 255, 255, 0.1) !important;
+          border-color: rgba(255, 122, 41, 0.6) !important;
+          transform: translateY(-2px) !important;
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        .ft-store-btn:active {
+          transform: scale(0.98) !important;
+          background: rgba(255, 255, 255, 0.15) !important;
+        }
+
         .fbig {
           position: relative;
           z-index: 1;
@@ -1167,7 +1207,8 @@ export const LandingPage: React.FC = () => {
         /* Bottom Bar */
         .fb {
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
           gap: 16px;
           border-top: 1px solid rgba(255, 255, 255, 0.09);
           padding-top: 20px;
@@ -1176,22 +1217,19 @@ export const LandingPage: React.FC = () => {
           z-index: 3;
         }
 
-        .fb-main-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          gap: 16px;
-        }
-
         .fb-left {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           color: #8c8275;
           font-size: 0.82rem;
           letter-spacing: -0.01em;
-          flex-wrap: wrap;
+        }
+
+        .fb-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .fb-right {
@@ -1200,83 +1238,75 @@ export const LandingPage: React.FC = () => {
           gap: 12px;
         }
 
-        .fb-center-row {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding-top: 2px;
-        }
-
         /* Powered by Tecstellar Badge */
         .ft-powered-block {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
           background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 3px 6px 3px 9px;
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          padding: 5px 8px 5px 12px;
           border-radius: 999px;
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
         }
 
         .ft-powered-block:hover {
           background: rgba(255, 255, 255, 0.06);
-          border-color: rgba(255, 255, 255, 0.16);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+          border-color: rgba(255, 255, 255, 0.18);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         }
 
         .ft-powered-txt {
-          font-size: 0.66rem;
+          font-size: 0.74rem;
           font-weight: 500;
           letter-spacing: 0.04em;
           text-transform: uppercase;
-          color: #8c8275;
+          color: #9c9285;
           white-space: nowrap;
         }
 
         .ft-tecstellar-chip {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          padding: 3px 9px 3px 7px;
+          gap: 8px;
+          background: rgba(255, 255, 255, 0.09);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 5px 13px 5px 10px;
           border-radius: 999px;
           text-decoration: none;
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
         }
 
         .ft-tecstellar-chip:hover {
           background: linear-gradient(135deg, rgba(255, 122, 41, 0.24) 0%, rgba(255, 255, 255, 0.12) 100%);
           border-color: rgba(255, 122, 41, 0.65);
-          box-shadow: 0 4px 14px rgba(255, 122, 41, 0.3);
+          box-shadow: 0 4px 18px rgba(255, 122, 41, 0.3);
           transform: translateY(-1px);
         }
 
         .ft-tecstellar-logo-img {
-          height: 14px;
+          height: 19px;
           width: auto;
-          max-width: 95px;
+          max-width: 140px;
           object-fit: contain;
           display: block;
           filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.4));
         }
 
         .ft-tecstellar-emblem-img {
-          height: 14px;
-          width: 14px;
+          height: 18px;
+          width: 18px;
           object-fit: contain;
           display: block;
           filter: brightness(1.2);
         }
 
         .ft-tecstellar-name {
-          font-size: 0.8rem;
+          font-size: 0.86rem;
           font-weight: 700;
           letter-spacing: -0.01em;
           color: #ffffff;
@@ -1320,24 +1350,17 @@ export const LandingPage: React.FC = () => {
         .ft-back-to-top {
           display: inline-flex;
           align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          color: #d1c5b8;
+          gap: 5px;
+          color: #8c8275;
+          font-size: 0.82rem;
+          font-weight: 500;
           text-decoration: none;
           cursor: pointer;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: color 0.18s;
         }
 
         .ft-back-to-top:hover {
-          background: #FF7A29;
-          border-color: #FF7A29;
           color: #ffffff;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 14px rgba(255, 122, 41, 0.35);
         }
 
         .fl { color: #fff; text-decoration: none; }
@@ -1406,6 +1429,8 @@ export const LandingPage: React.FC = () => {
           .fg { grid-template-columns: 1fr; gap: 32px; }
           .ft-top-banner { flex-direction: column; align-items: flex-start; gap: 14px; }
           .fb-left { flex-direction: column; gap: 4px; }
+          .ft-stores-col { max-width: 100%; }
+          .ft-store-btn { max-width: 100% !important; }
         }
       `}</style>
 
@@ -2102,6 +2127,36 @@ export const LandingPage: React.FC = () => {
       {/* Footer */}
       <footer className="ft">
         <div className="wrap">
+          {/* Top Banner with Status Indicator */}
+          <div className="ft-top-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div className="ft-status-pill">
+                <span className="ft-status-dot"></span>
+                <span>Active Cloud Billing Network</span>
+              </div>
+              <span className="ft-tagline-muted">Built for high-speed retail and counter businesses</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                className="btn sm"
+                onClick={() => navigate('/login')}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  fontSize: '0.82rem',
+                  padding: '7px 16px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                Launch Web App →
+              </button>
+            </div>
+          </div>
+
           {/* 4-Column Grid */}
           <div className="fg">
             {/* Col 1: Brand & Stores */}
@@ -2112,56 +2167,40 @@ export const LandingPage: React.FC = () => {
               <p style={{ margin: '8px 0 12px', maxWidth: '34ch', lineHeight: 1.5, color: '#a3988b', fontSize: '0.86rem' }}>
                 Effortless 3-second billing, real-time inventory, and khata dues tracking for restaurants, juice bars, tea counters & retail outlets.
               </p>
-              <div className="stores" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', maxWidth: '330px' }}>
+              {/* Stacked Responsive Store Badges: Google Play on top, App Store on next line */}
+              <div className="ft-stores-col">
                 <a
-                  className="store"
+                  className="ft-store-btn"
                   href="https://play.google.com/store/search?q=Counter%20365&c=apps"
                   target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    flex: '1 1 145px',
-                    width: '145px',
-                    height: '46px',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    boxSizing: 'border-box',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                  }}
+                  rel="noopener noreferrer"
+                  aria-label="Get Counter 365 on Google Play"
                 >
-                  <svg style={{ width: '22px', height: '22px', flexShrink: 0 }}>
-                    <use href="#gp" />
+                  <svg width="22" height="22" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+                    <path fill="#00A0FF" d="M3.5 2.5 13 12l-9.5 9.5z" />
+                    <path fill="#00E676" d="M3.5 2.5 13 12l3.4-2.3z" />
+                    <path fill="#FF3A44" d="M3.5 21.5 13 12l3.4 2.3z" />
+                    <path fill="#FFD500" d="M16.4 9.7 20.5 12l-4.1 2.3L13 12z" />
                   </svg>
-                  <span style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.1 }}>
-                    <small style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '9px', whiteSpace: 'nowrap' }}>GET IT ON</small>
-                    <b style={{ color: '#FFFFFF', fontSize: '0.92rem', whiteSpace: 'nowrap' }}>Google Play</b>
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                    <small style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>GET IT ON</small>
+                    <b style={{ color: '#FFFFFF', fontSize: '0.94rem', fontWeight: 700 }}>Google Play</b>
+                  </div>
                 </a>
                 <a
-                  className="store"
+                  className="ft-store-btn"
                   href="#"
                   onClick={(e) => e.preventDefault()}
                   title="Coming soon to App Store"
-                  style={{
-                    flex: '1 1 145px',
-                    width: '145px',
-                    height: '46px',
-                    padding: '8px 12px',
-                    borderRadius: '10px',
-                    boxSizing: 'border-box',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                  }}
+                  aria-label="Download Counter 365 on the App Store"
                 >
-                  <svg style={{ width: '22px', height: '22px', flexShrink: 0 }}>
-                    <use href="#ap" />
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#FFFFFF" style={{ flexShrink: 0 }}>
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.63 1.35-.57.65-1.07 1.71-.93 2.73 1 .08 2.02-.48 2.64-1.23z" />
                   </svg>
-                  <span style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.1 }}>
-                    <small style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '9px', whiteSpace: 'nowrap' }}>Download on the</small>
-                    <b style={{ color: '#FFFFFF', fontSize: '0.92rem', whiteSpace: 'nowrap' }}>App Store</b>
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left', lineHeight: 1.15 }}>
+                    <small style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>Download on the</small>
+                    <b style={{ color: '#FFFFFF', fontSize: '0.94rem', fontWeight: 700 }}>App Store</b>
+                  </div>
                 </a>
               </div>
             </div>
@@ -2257,9 +2296,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Col 4: Legal */}
+            {/* Col 4: Legal & System */}
             <div>
-              <h4>Legal</h4>
+              <h4>Legal & Portal</h4>
               <ul className="fg-links">
                 <li>
                   <a
@@ -2283,6 +2322,20 @@ export const LandingPage: React.FC = () => {
                     Terms & Conditions
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="https://counter365-admin.tecstellar.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Counter 365 Admin Login ↗
+                  </a>
+                </li>
+                <li style={{ marginTop: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#7a7063', display: 'block', lineHeight: 1.5 }}>
+                    GST Compliant · 100% Offline Capable · Encrypted Cloud Sync
+                  </span>
+                </li>
               </ul>
             </div>
           </div>
@@ -2295,36 +2348,14 @@ export const LandingPage: React.FC = () => {
             />
           </div>
 
-          {/* Bottom Bar: Row 1 (Copyright & Back to Top) | Row 2 Below it (Bottom Center: Powered by Tecstellar) */}
+          {/* Bottom Bar: Left (Copyright) | Center (Powered by Tecstellar) | Right (Admin Login & Top) */}
           <div className="fb">
-            <div className="fb-main-row">
-              <div className="fb-left">
-                <span>© 2026 Counter 365.</span>
-                <span style={{ opacity: 0.35 }}>·</span>
-                <span>Made with ☕ for counters everywhere</span>
-              </div>
-
-              <div className="fb-right">
-                <a
-                  className="ft-back-to-top"
-                  href="#top"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  title="Back to top"
-                  aria-label="Back to top"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
-                  </svg>
-                </a>
-              </div>
+            <div className="fb-left">
+              <span>© 2026 Counter 365. All rights reserved.</span>
             </div>
 
-            {/* Bottom Center Container (Below 2026 Counter 365) */}
-            <div className="fb-center-row">
+            {/* Bottom Center: Powered by Tecstellar (Clickable & Minimalist) */}
+            <div className="fb-center">
               <div className="ft-powered-block">
                 <span className="ft-powered-txt">Powered by</span>
                 <a
@@ -2341,8 +2372,8 @@ export const LandingPage: React.FC = () => {
                   />
                   <svg
                     className="ft-tecstellar-arrow"
-                    width="10"
-                    height="10"
+                    width="11"
+                    height="11"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -2355,6 +2386,30 @@ export const LandingPage: React.FC = () => {
                   </svg>
                 </a>
               </div>
+            </div>
+
+            <div className="fb-right">
+              <a
+                className="ft-admin-pill"
+                href="https://counter365-admin.tecstellar.com/"
+                target="_blank"
+                rel="noreferrer"
+                title="Counter365 Admin Login"
+              >
+                Admin login
+              </a>
+              <span style={{ opacity: 0.3 }}>·</span>
+              <a
+                className="ft-back-to-top"
+                href="#top"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                title="Back to top"
+              >
+                Back to top ↑
+              </a>
             </div>
           </div>
         </div>
