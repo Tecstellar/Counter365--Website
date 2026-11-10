@@ -999,12 +999,312 @@ export const LandingPage: React.FC = () => {
         .policy-body ul { margin: 0 0 12px; padding-left: 20px; }
         .policy-body li { margin-bottom: 6px; }
 
-        footer.ft { position: relative; overflow: hidden; background: var(--esp); color: #cdbfb1; padding: 72px 0 26px; font-size: .92rem; }
-        .fg { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 40px; position: relative; z-index: 1; }
-        .fg h4 { font: 700 11px "DM Sans", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #fff; opacity: .55; margin-bottom: 14px; }
-        .fbig { position: relative; z-index: 1; margin: 46px 0 22px; text-align: center; }
-        .fbig img { display: block; margin: auto; width: min(680px, 86%); height: auto; opacity: .12; }
-        .fb { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,.1); padding-top: 20px; font-size: .84rem; position: relative; z-index: 1; }
+        /* Enhanced Modern Minimalist Footer */
+        footer.ft {
+          position: relative;
+          overflow: hidden;
+          background: #0d0a07;
+          background-image:
+            radial-gradient(ellipse 90% 45% at 50% -5%, rgba(255, 95, 0, 0.1), transparent 60%),
+            radial-gradient(circle at 10% 90%, rgba(255, 122, 41, 0.04), transparent 50%),
+            radial-gradient(circle at 90% 90%, rgba(255, 95, 0, 0.03), transparent 50%);
+          color: #c5b9ac;
+          padding: 84px 0 32px;
+          font-size: 0.92rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .ft-top-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding-bottom: 36px;
+          margin-bottom: 44px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+          flex-wrap: wrap;
+        }
+
+        .ft-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          background: rgba(46, 155, 106, 0.12);
+          border: 1px solid rgba(46, 155, 106, 0.28);
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #38c182;
+          letter-spacing: 0.02em;
+        }
+
+        .ft-status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #2E9B6A;
+          box-shadow: 0 0 8px #2E9B6A;
+          animation: ft_pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes ft_pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.45; transform: scale(0.85); }
+        }
+
+        .ft-tagline-muted {
+          font-size: 0.88rem;
+          color: #8c8275;
+          letter-spacing: -0.01em;
+        }
+
+        .fg {
+          display: grid;
+          grid-template-columns: 1.5fr 0.9fr 1.1fr 0.9fr;
+          gap: 48px;
+          position: relative;
+          z-index: 2;
+        }
+
+        .fg h4 {
+          font: 700 11px "DM Sans", sans-serif;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: #ffffff;
+          opacity: 0.5;
+          margin-bottom: 18px;
+        }
+
+        .fg-links {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .fg-links li a, .fg a.fl {
+          color: #bdb0a2;
+          text-decoration: none;
+          font-size: 0.88rem;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .fg-links li a:hover, .fg a.fl:hover {
+          color: #ffffff;
+          transform: translateX(2px);
+        }
+
+        .ft-contact-card {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .ft-contact-phone {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 1.05rem;
+          letter-spacing: -0.01em;
+          text-decoration: none;
+          transition: color 0.18s;
+        }
+
+        .ft-contact-phone:hover {
+          color: #FF7A29;
+        }
+
+        .ft-support-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #25D366;
+          font-size: 0.84rem;
+          font-weight: 600;
+          text-decoration: none;
+          transition: opacity 0.18s;
+        }
+
+        .ft-support-pill:hover {
+          opacity: 0.85;
+          text-decoration: underline;
+        }
+
+        .ft-timing-note {
+          font-size: 0.8rem;
+          color: #7d7367;
+          line-height: 1.5;
+          margin: 4px 0 0;
+        }
+
+        .fbig {
+          position: relative;
+          z-index: 1;
+          margin: 48px 0 28px;
+          text-align: center;
+          user-select: none;
+          pointer-events: none;
+        }
+
+        .fbig img {
+          display: block;
+          margin: auto;
+          width: min(680px, 86%);
+          height: auto;
+          opacity: 0.08;
+          filter: drop-shadow(0 0 40px rgba(255, 95, 0, 0.08));
+        }
+
+        /* Bottom Bar */
+        .fb {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 18px;
+          border-top: 1px solid rgba(255, 255, 255, 0.09);
+          padding-top: 26px;
+          font-size: 0.84rem;
+          position: relative;
+          z-index: 3;
+        }
+
+        .fb-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: #8c8275;
+          font-size: 0.82rem;
+          letter-spacing: -0.01em;
+        }
+
+        .fb-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .fb-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        /* Powered by Tecstellar Badge */
+        .ft-powered-block {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          background: rgba(255, 255, 255, 0.025);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 5px 8px 5px 14px;
+          border-radius: 999px;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+
+        .ft-powered-block:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.16);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .ft-powered-txt {
+          font-size: 0.75rem;
+          font-weight: 500;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #8a7f72;
+          white-space: nowrap;
+        }
+
+        .ft-tecstellar-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          padding: 5px 12px 5px 10px;
+          border-radius: 999px;
+          text-decoration: none;
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        }
+
+        .ft-tecstellar-chip:hover {
+          background: linear-gradient(135deg, rgba(255, 122, 41, 0.22) 0%, rgba(255, 255, 255, 0.1) 100%);
+          border-color: rgba(255, 122, 41, 0.6);
+          box-shadow: 0 4px 16px rgba(255, 122, 41, 0.25);
+          transform: translateY(-1px);
+        }
+
+        .ft-tecstellar-logo-img {
+          height: 15px;
+          width: auto;
+          display: block;
+          filter: brightness(1.05);
+        }
+
+        .ft-tecstellar-arrow {
+          color: #FF7A29;
+          display: inline-flex;
+          align-items: center;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+        }
+
+        .ft-tecstellar-chip:hover .ft-tecstellar-arrow {
+          transform: translate(2px, -2px);
+          color: #ff9d5c;
+        }
+
+        .ft-admin-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #d1c5b8;
+          text-decoration: none;
+          transition: all 0.2s ease;
+          letter-spacing: 0.01em;
+        }
+
+        .ft-admin-pill:hover {
+          background: rgba(255, 255, 255, 0.09);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.22);
+          transform: translateY(-1px);
+        }
+
+        .ft-back-to-top {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #8c8275;
+          font-size: 0.82rem;
+          font-weight: 500;
+          text-decoration: none;
+          cursor: pointer;
+          transition: color 0.18s;
+        }
+
+        .ft-back-to-top:hover {
+          color: #ffffff;
+        }
+
         .fl { color: #fff; text-decoration: none; }
         .fl:hover { text-decoration: underline; }
 
@@ -1056,12 +1356,21 @@ export const LandingPage: React.FC = () => {
         }
 
         @media (max-width: 860px) {
-          .hero .wrap, .cmp, .lang, .fg { grid-template-columns: 1fr; }
+          .hero .wrap, .cmp, .lang { grid-template-columns: 1fr; }
+          .fg { grid-template-columns: 1fr 1fr; gap: 36px; }
+          .fb { flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 20px; }
+          .fb-left, .fb-center, .fb-right { justify-content: center; }
           .bc, .bc.w { grid-column: span 6; }
           .stats { grid-template-columns: 1fr; }
           section { padding: 64px 0; }
           .band, .fin { margin: 0 12px; }
           footer.ft { padding-bottom: 40px; }
+        }
+
+        @media (max-width: 600px) {
+          .fg { grid-template-columns: 1fr; gap: 32px; }
+          .ft-top-banner { flex-direction: column; align-items: flex-start; gap: 14px; }
+          .fb-left { flex-direction: column; gap: 4px; }
         }
       `}</style>
 
@@ -1758,15 +2067,47 @@ export const LandingPage: React.FC = () => {
       {/* Footer */}
       <footer className="ft">
         <div className="wrap">
+          {/* Top Banner with Status Indicator */}
+          <div className="ft-top-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div className="ft-status-pill">
+                <span className="ft-status-dot"></span>
+                <span>Active Cloud Billing Network</span>
+              </div>
+              <span className="ft-tagline-muted">Built for high-speed retail and counter businesses</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                className="btn sm"
+                onClick={() => navigate('/login')}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.14)',
+                  fontSize: '0.82rem',
+                  padding: '7px 16px',
+                  borderRadius: '999px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                Launch Web App →
+              </button>
+            </div>
+          </div>
+
+          {/* 4-Column Grid */}
           <div className="fg">
+            {/* Col 1: Brand & Stores */}
             <div>
-              <a className="logo" href="#top">
-                <img src="/counter365_logo_white.png" alt="Counter 365" style={{ height: '30px', width: 'auto', objectFit: 'contain', display: 'block' }} />
+              <a className="logo" href="#top" onClick={(e) => handleNavClick(e, 'top')}>
+                <img src="/counter365_logo_white.png" alt="Counter 365" style={{ height: '32px', width: 'auto', objectFit: 'contain', display: 'block' }} />
               </a>
-              <p style={{ margin: '14px 0 20px', maxWidth: '32ch' }}>
-                Smart billing for every counter. Built for tea stalls, cafés, juice shops and restaurants.
+              <p style={{ margin: '14px 0 20px', maxWidth: '34ch', lineHeight: 1.6, color: '#a3988b' }}>
+                Effortless 3-second billing, real-time inventory, and khata dues tracking for restaurants, juice bars, tea counters & retail outlets.
               </p>
-              <div className="stores" style={{ display: 'flex', gap: 12 }}>
+              <div className="stores">
                 <a className="store" href="https://play.google.com/store/search?q=Counter%20365&c=apps" target="_blank" rel="noreferrer">
                   <svg>
                     <use href="#gp" />
@@ -1776,7 +2117,7 @@ export const LandingPage: React.FC = () => {
                     <b style={{ color: '#FFFFFF' }}>Google Play</b>
                   </span>
                 </a>
-                <a className="store" href="#">
+                <a className="store" href="#" onClick={(e) => e.preventDefault()} title="Coming soon to App Store">
                   <svg>
                     <use href="#ap" />
                   </svg>
@@ -1787,97 +2128,185 @@ export const LandingPage: React.FC = () => {
                 </a>
               </div>
             </div>
+
+            {/* Col 2: Navigation */}
             <div>
-              <h4>Contact</h4>
-              <p>
-                Request a free demo call:
-                <br />
-                <b>+91 88705 00106</b>
-              </p>
-              <p style={{ marginTop: 12 }}>
-                <a className="fl" href="https://wa.me/918870500106?text=Hi%20Counter%20365%2C%20I%20would%20like%20to%20request%20a%20free%20demo%20call." target="_blank" rel="noreferrer">
-                  WhatsApp demo
-                </a>{' '}
-                ·{' '}
-                <a className="fl" href="https://instagram.com/stylefleet" target="_blank" rel="noreferrer">
-                  Instagram
-                </a>
-              </p>
+              <h4>Explore</h4>
+              <ul className="fg-links">
+                <li>
+                  <a href="#why" onClick={(e) => handleNavClick(e, 'why')}>
+                    Why Counter 365
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" onClick={(e) => handleNavClick(e, 'features')}>
+                    Features & Hardware
+                  </a>
+                </li>
+                <li>
+                  <a href="#who" onClick={(e) => handleNavClick(e, 'who')}>
+                    Who It Is For
+                  </a>
+                </li>
+                <li>
+                  <a href="#pricing" onClick={(e) => handleNavClick(e, 'pricing')}>
+                    Pricing & Plans
+                  </a>
+                </li>
+                <li>
+                  <a href="/login" onClick={(e) => { e.preventDefault(); navigate('/login'); }}>
+                    Start Free Trial
+                  </a>
+                </li>
+              </ul>
             </div>
+
+            {/* Col 3: Contact & Support */}
             <div>
-              <h4>Company</h4>
-              <p>
-                © 2026 Counter 365.
-                <br />
-                Powered by{' '}
-                <a
-                  className="fl"
-                  href="https://tecstellar.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: '#FF7A29', fontWeight: 700, textDecoration: 'underline' }}
-                >
-                  Tecstellar
-                </a>
-                .
-              </p>
-              <p style={{ marginTop: 12 }}>
-                <a
-                  className="fl"
-                  href="#privacy"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPolicyModal('privacy');
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  Privacy policy
-                </a>{' '}
-                ·{' '}
-                <a
-                  className="fl"
-                  href="#terms"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPolicyModal('terms');
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  Terms and conditions
-                </a>
-              </p>
+              <h4>Direct Contact</h4>
+              <div className="ft-contact-card">
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: '#8f8578', display: 'block', marginBottom: '4px' }}>Demo & Sales Hotline</span>
+                  <a href="tel:+918870500106" className="ft-contact-phone">
+                    +91 88705 00106
+                  </a>
+                </div>
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginTop: '6px' }}>
+                  <a
+                    className="ft-support-pill"
+                    href="https://wa.me/918870500106?text=Hi%20Counter%20365%2C%20I%20would%20like%20to%20request%20a%20free%20demo%20call."
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span>💬</span> WhatsApp Demo
+                  </a>
+                  <span style={{ opacity: 0.3 }}>·</span>
+                  <a className="fl" href="https://instagram.com/stylefleet" target="_blank" rel="noreferrer" style={{ fontSize: '0.84rem' }}>
+                    Instagram
+                  </a>
+                </div>
+                <p className="ft-timing-note">
+                  Operating Hours: Mon – Sat<br />
+                  9:00 AM – 8:00 PM IST
+                </p>
+              </div>
+            </div>
+
+            {/* Col 4: Legal & System */}
+            <div>
+              <h4>Legal & Portal</h4>
+              <ul className="fg-links">
+                <li>
+                  <a
+                    href="#privacy"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPolicyModal('privacy');
+                    }}
+                  >
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="#terms"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPolicyModal('terms');
+                    }}
+                  >
+                    Terms & Conditions
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://counter365-admin.tecstellar.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Admin Portal ↗
+                  </a>
+                </li>
+                <li style={{ marginTop: '8px' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#7a7063', display: 'block', lineHeight: 1.5 }}>
+                    GST Compliant · 100% Offline Capable · Encrypted Cloud Sync
+                  </span>
+                </li>
+              </ul>
             </div>
           </div>
+
+          {/* Watermark Logo Silhouette */}
           <div className="fbig" aria-hidden="true">
             <img
               src="/counter365_logo_white.png"
               alt="Counter 365"
-              style={{
-                display: 'block',
-                margin: '0 auto',
-                width: 'min(640px, 85%)',
-                height: 'auto',
-                opacity: 0.12,
-                pointerEvents: 'none',
-                userSelect: 'none',
-              }}
             />
           </div>
+
+          {/* Bottom Bar: Left (Copyright) | Center (Powered by Tecstellar) | Right (Admin Login & Top) */}
           <div className="fb">
-            <span>Made with ☕ for counters everywhere</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="fb-left">
+              <span>© 2026 Counter 365.</span>
+              <span style={{ opacity: 0.35 }}>·</span>
+              <span>Made with ☕ for counters everywhere</span>
+            </div>
+
+            {/* Bottom Center: Powered by Tecstellar (Clickable & Minimalist) */}
+            <div className="fb-center">
+              <div className="ft-powered-block">
+                <span className="ft-powered-txt">Powered by</span>
+                <a
+                  href="https://tecstellar.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ft-tecstellar-chip"
+                  title="Tecstellar Technologies — Building Next-Gen Software"
+                >
+                  <img
+                    src="/tecstellar_logo_cropped.png"
+                    alt="Tecstellar"
+                    className="ft-tecstellar-logo-img"
+                  />
+                  <svg
+                    className="ft-tecstellar-arrow"
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="7" y1="17" x2="17" y2="7" />
+                    <polyline points="7 7 17 7 17 17" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            <div className="fb-right">
               <a
-                className="fl"
+                className="ft-admin-pill"
                 href="https://counter365-admin.tecstellar.com/"
                 target="_blank"
                 rel="noreferrer"
-                style={{ letterSpacing: '0.02em', fontWeight: 600, fontSize: '0.84rem' }}
                 title="Counter365 Admin Login"
               >
-                Admin login
+                <span>🔒</span>
+                <span>Admin login</span>
               </a>
-              <span style={{ opacity: 0.35 }}>·</span>
-              <a className="fl" href="#top">
+              <span style={{ opacity: 0.3 }}>·</span>
+              <a
+                className="ft-back-to-top"
+                href="#top"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                title="Back to top"
+              >
                 Back to top ↑
               </a>
             </div>
