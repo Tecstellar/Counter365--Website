@@ -1661,7 +1661,7 @@ export const LandingPage: React.FC = () => {
               <div className="mobile-sub-actions">
                 <span>Free 100 bills included</span>
                 <a
-                  href="https://play.google.com/store/search?q=Counter%20365&c=apps"
+                  href="https://play.google.com/store/apps/details?id=com.counterpro.app&pcampaignid=web_share"
                   target="_blank"
                   rel="noreferrer"
                   className="mobile-sub-link"
@@ -1719,7 +1719,7 @@ export const LandingPage: React.FC = () => {
               Counter 365 is the fastest billing app for tea stalls, cafés, juice shops and restaurants. Tap for full, hold for half, and hand over the bill before the chai cools.
             </p>
             <div className="cta">
-              <a className="store" href="https://play.google.com/store/search?q=Counter%20365&c=apps" target="_blank" rel="noreferrer">
+              <a className="store" href="https://play.google.com/store/apps/details?id=com.counterpro.app&pcampaignid=web_share" target="_blank" rel="noreferrer">
                 <svg>
                   <use href="#gp" />
                 </svg>
@@ -2108,7 +2108,7 @@ export const LandingPage: React.FC = () => {
           <h2>Make every rush hour feel easy.</h2>
           <p className="lead">Open Counter 365 and send your first bill today.</p>
           <div className="cta">
-            <a className="store" href="https://play.google.com/store/search?q=Counter%20365&c=apps" target="_blank" rel="noreferrer">
+            <a className="store" href="https://play.google.com/store/apps/details?id=com.counterpro.app&pcampaignid=web_share" target="_blank" rel="noreferrer">
               <svg>
                 <use href="#gp" />
               </svg>
@@ -2177,7 +2177,7 @@ export const LandingPage: React.FC = () => {
               <div className="ft-stores-col">
                 <a
                   className="ft-store-btn"
-                  href="https://play.google.com/store/search?q=Counter%20365&c=apps"
+                  href="https://play.google.com/store/apps/details?id=com.counterpro.app&pcampaignid=web_share"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Get Counter 365 on Google Play"
